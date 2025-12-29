@@ -40,3 +40,34 @@ Thumbs.db
 
 .nx/cache
 .nx/workspace-data
+
+vite.config.*.timestamp*
+
+
+# --- Dependencias (Nunca se suben) ---
+node_modules
+/dist
+/tmp
+/out-tsc
+/coverage
+
+# --- Seguridad / Variables de Entorno (CRUCIAL) ---
+.env
+.env.local
+.env.*.local
+
+# --- Nx y Cache ---
+.nx/cache
+.nx/workspace-data
+
+# --- Archivos del Sistema / IDE ---
+.DS_Store
+Thumbs.db
+.vscode
+.idea
+
+# --- Logs ---
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+error.log
