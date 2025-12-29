@@ -1,6 +1,7 @@
 import { useState } from "react";
 import axios from 'axios';
 import { Lock, Mail, Loader2, CheckCircle } from 'lucide-react';
+import Dashboard from './dashboard';
 
 export default function App() {
   // Estados para guardar lo que escribe el usuario
@@ -40,25 +41,17 @@ export default function App() {
       setLoading(false);
     }
   };
-// Si ya se logueó, mostramos mensaje de éxito
+  // Si ya se logueó, mostramos el Dashboard completo
   if (success) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-green-50">
-        <CheckCircle className="w-20 h-20 text-green-600 mb-4" />
-        <h1 className="text-3xl font-bold text-green-800">¡Bienvenido al ERP!</h1>
-        <p className="text-gray-600 mt-2">Sesión iniciada correctamente.</p>
-        <button 
-          onClick={() => {
-            setSuccess(false); 
-            setEmail(''); 
-            setPassword('');
-            localStorage.removeItem('erp_token');
-          }}
-          className="mt-6 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-        >
-          Cerrar Sesión (Demo)
-        </button>
-      </div>
+      <Dashboard 
+        onLogout={() => {
+          setSuccess(false); 
+          setEmail(''); 
+          setPassword('');
+          localStorage.removeItem('erp_token');
+        }} 
+      />
     );
   }
 
