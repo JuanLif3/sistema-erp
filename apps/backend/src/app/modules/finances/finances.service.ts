@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { CreateFinanceDto } from '../dto/create-finance.dto';
-import { UpdateFinanceDto } from '../dto/update-finance.dto';
+import { CreateFinanceDto } from './dto/create-finance.dto';
+import { UpdateFinanceDto } from './dto/update-finance.dto';
 
 @Injectable()
 export class FinancesService {

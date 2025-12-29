@@ -7,8 +7,8 @@ import {
   Param,
   Delete,
 } from '@nestjs/common';
-import { CreateFinanceDto } from '../dto/create-finance.dto';
-import { UpdateFinanceDto } from '../dto/update-finance.dto';
+import { CreateFinanceDto } from './dto/create-finance.dto';
+import { UpdateFinanceDto } from './dto/update-finance.dto';
 import { FinancesService } from './finances.service';
 
 @Controller('finances')
