@@ -13,32 +13,23 @@ export default function App() {
 
   // Funcion que se ejecuta al darle "Ingresar"
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault(); // Evita que se recargue la pagina
-    setLoading(true);
-    setError('');
-
+    e.preventDefault();
     try {
-      // 1. Peticion al backend
       const response = await axios.post('http://localhost:3000/api/auth/login', {
         email,
-        password,
+        password
       });
-
-      // 2. Si todo sale bien
-      const token = response.data.access_token;
-
-      // Guardamos el token en el navegador
-      localStorage.setItem('erp_token', token);
+      
+      localStorage.setItem('erp_token', response.data.access_token);
+      
+      // 👇 AGREGA ESTA LÍNEA NUEVA
+      // Guardamos el rol. Si viene como array lo guardamos tal cual, si no, lo convertimos.
+      const roles = response.data.user.roles; 
+      localStorage.setItem('erp_roles', JSON.stringify(Array.isArray(roles) ? roles : [roles]));
 
       setSuccess(true);
-      console.log("Token guardado:", token);
-    
-    } catch (err: any) {
-      // 3. Si falla
-      console.error(err);
-      setError('Credenciales incorrectas o error de conexion');
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      setError('Credenciales incorrectas');
     }
   };
   // Si ya se logueó, mostramos el Dashboard completo

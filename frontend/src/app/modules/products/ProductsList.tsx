@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Plus, Search, Package, AlertCircle } from 'lucide-react';
+import ProductFormModal from './ProductFormModal';
 
 // Definimos la forma de nuestros datos (igual que en el backend)
 interface Product {
@@ -16,6 +17,7 @@ interface Product {
 export default function ProductsList() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Cargar productos al iniciar
   useEffect(() => {
@@ -45,7 +47,7 @@ export default function ProductsList() {
           <h2 className="text-2xl font-bold text-slate-800">Inventario</h2>
           <p className="text-slate-500 text-sm">Gestiona tu catálogo de productos</p>
         </div>
-        <button className="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2.5 rounded-lg flex items-center gap-2 font-medium transition-colors shadow-sm">
+        <button onClick={() => setIsModalOpen(true)} className="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2.5 rounded-lg flex items-center gap-2 font-medium transition-colors shadow-sm">
           <Plus size={20} />
           Nuevo Producto
         </button>
@@ -125,6 +127,12 @@ export default function ProductsList() {
           </div>
         )}
       </div>
+      {/* MODAL DE CREACIÓN */}
+  <ProductFormModal 
+    isOpen={isModalOpen} 
+    onClose={() => setIsModalOpen(false)} 
+    onSuccess={fetchProducts} // Cuando guarde, recarga la lista automáticamente
+  />
     </div>
   );
 }

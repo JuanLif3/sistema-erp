@@ -28,10 +28,21 @@ export class AuthService {
 
       // 2. Generar el token (login)
     async login(user: any) {
-      const payload = { email: user.email, sub: user.id, roles: user.roles };
-      return {
-        access_token: this.jwtService.sign(payload), // Firma difital del token
-        user: user, // Opcional: devolvemos info basica del usaurio
-      };
-    }
+    // Incluimos los roles en el payload del token y en la respuesta
+    const payload = { 
+      username: user.email, 
+      sub: user.id, 
+      roles: user.roles // <--- ESTO ES CRUCIAL
+    };
+
+    return {
+      access_token: this.jwtService.sign(payload),
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        roles: user.roles // <--- También lo devolvemos en plano para el frontend
+      }
+    };
+  }
 }
