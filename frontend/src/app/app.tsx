@@ -1,38 +1,52 @@
-import { useState } from "react";
-import axios from 'axios';
-import { Lock, Mail, Loader2, CheckCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import Dashboard from './dashboard';
+import axios from 'axios';
+import { Loader2, Lock, Mail } from 'lucide-react';
 
-export default function App() {
-  // Estados para guardar lo que escribe el usuario
+export function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState('');
 
-  // Funcion que se ejecuta al darle "Ingresar"
+  // Verificar si ya hay sesión al cargar
+  useEffect(() => {
+    const token = localStorage.getItem('erp_token');
+    if (token) {
+      setSuccess(true);
+    }
+  }, []);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
+    setError('');
+
     try {
       const response = await axios.post('http://localhost:3000/api/auth/login', {
         email,
         password
       });
       
+      // Guardar Token
       localStorage.setItem('erp_token', response.data.access_token);
       
-      // 👇 AGREGA ESTA LÍNEA NUEVA
-      // Guardamos el rol. Si viene como array lo guardamos tal cual, si no, lo convertimos.
-      const roles = response.data.user.roles; 
+      // 👇 GUARDAR ROLES (Vital para que funcione el menú)
+      const roles = response.data.user.roles;
+      // Aseguramos que siempre sea un Array antes de guardarlo
       localStorage.setItem('erp_roles', JSON.stringify(Array.isArray(roles) ? roles : [roles]));
 
       setSuccess(true);
-    } catch (error) {
-      setError('Credenciales incorrectas');
+    } catch (err) {
+      console.error(err);
+      setError('Credenciales incorrectas o usuario inactivo');
+    } finally {
+      setLoading(false);
     }
   };
-  // Si ya se logueó, mostramos el Dashboard completo
+
+  // Si está logueado, mostramos el Dashboard
   if (success) {
     return (
       <Dashboard 
@@ -40,89 +54,71 @@ export default function App() {
           setSuccess(false); 
           setEmail(''); 
           setPassword('');
+          // Limpiamos todo al salir
           localStorage.removeItem('erp_token');
+          localStorage.removeItem('erp_roles');
         }} 
       />
     );
   }
 
-  // Formulario de Login
+  // Pantalla de Login
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-gray-100">
-        
-        {/* Encabezado */}
+    <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4 font-sans">
+      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-200">
         <div className="text-center mb-8">
-          <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Lock className="w-8 h-8 text-blue-600" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-800">Acceso al ERP</h1>
-          <p className="text-gray-500 text-sm">Ingresa tus credenciales para continuar</p>
+          <h1 className="text-3xl font-bold text-slate-800 mb-2">Bienvenido</h1>
+          <p className="text-slate-500">Ingresa tus credenciales para acceder al ERP</p>
         </div>
 
-        {/* Formulario */}
-        <form onSubmit={handleLogin} className="space-y-6">
-          
-          {/* Email */}
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 flex items-center justify-center">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleLogin} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Correo Electrónico</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Correo Electrónico</label>
             <div className="relative">
-              <Mail className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-              <input
-                type="email"
-                placeholder="admin@erp.com"
+              <Mail className="absolute left-3 top-2.5 text-slate-400" size={18} />
+              <input 
+                type="email" 
+                required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-                required
+                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                placeholder="admin@erp.com"
               />
             </div>
           </div>
 
-          {/* Password */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Contraseña</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Contraseña</label>
             <div className="relative">
-              <Lock className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-              <input
-                type="password"
-                placeholder="••••••••"
+              <Lock className="absolute left-3 top-2.5 text-slate-400" size={18} />
+              <input 
+                type="password" 
+                required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-                required
+                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                placeholder="••••••"
               />
             </div>
           </div>
 
-          {/* Mensaje de Error */}
-          {error && (
-            <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg text-center font-medium">
-              {error}
-            </div>
-          )}
-
-          {/* Botón Submit */}
-          <button
-            type="submit"
+          <button 
+            type="submit" 
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-slate-900 hover:bg-black text-white py-2.5 rounded-lg font-medium transition-all shadow-lg shadow-slate-900/20 flex justify-center items-center gap-2 disabled:opacity-70"
           >
-            {loading ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                Validando...
-              </>
-            ) : (
-              'Ingresar al Sistema'
-            )}
+            {loading ? <Loader2 className="animate-spin" size={20} /> : 'Iniciar Sesión'}
           </button>
         </form>
-
-        <p className="text-center text-xs text-gray-400 mt-8">
-          © 2025 Sistema ERP Seguro
-        </p>
       </div>
     </div>
   );
 }
+
+export default App;

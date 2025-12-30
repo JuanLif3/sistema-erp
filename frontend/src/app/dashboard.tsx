@@ -1,16 +1,15 @@
 import { useState } from 'react';
 import { 
-  Users, Package, ShoppingCart, DollarSign, LogOut, Menu, LayoutDashboard, X, ChevronRight,
-  Shield
+  Users, Package, ShoppingCart, DollarSign, LogOut, Menu, LayoutDashboard, X, ChevronRight, Shield
 } from 'lucide-react';
 
-// Importamos todos los módulos
+// Módulos
 import ProductsList from './modules/products/ProductsList';
 import SalesManager from './modules/sales/SalesManager';
 import StatsCards from './components/StatsCards';
 import LowStockWidget from './components/LowStockWidget';
 import SalesChart from './components/SalesChart';
-import UsersList from './modules/users/UsersList';
+import UsersList from './modules/users/UsersList'; // Asegúrate de tener este componente creado
 
 interface DashboardProps {
   onLogout: () => void;
@@ -19,54 +18,47 @@ interface DashboardProps {
 export default function Dashboard({ onLogout }: DashboardProps) {
   const [activeModule, setActiveModule] = useState('resumen');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // 1. LEER ROLES GUARDADOS
+  // Si no encuentra roles, asume 'employee' por seguridad
   const userRoles = JSON.parse(localStorage.getItem('erp_roles') || '["employee"]');
 
+  // 2. FUNCIÓN DE SEGURIDAD
+  const hasRole = (requiredRoles: string[]) => {
+    if (userRoles.includes('admin')) return true; // Admin ve todo
+    return requiredRoles.some(r => userRoles.includes(r));
+  };
+
+  // 3. DEFINIR MENÚ CON PERMISOS
   const menuItems = [
-  { 
-    id: 'resumen', 
-    label: 'Resumen General', 
-    icon: LayoutDashboard,
-    allowedRoles: ['admin', 'manager', 'employee'] // Todos pueden ver el resumen
-  },
-  { 
-    id: 'pedidos', 
-    label: 'Ventas y Pedidos', 
-    icon: ShoppingCart, 
-    allowedRoles: ['admin', 'employee'] // Empleados y Admins venden
-  },
-  { 
-    id: 'productos', 
-    label: 'Inventario', 
-    icon: Package, 
-    allowedRoles: ['admin', 'manager'] // Solo Jefes y Admins tocan inventario
-  },
-  { 
-    id: 'finanzas', 
-    label: 'Finanzas', 
-    icon: DollarSign, 
-    allowedRoles: ['admin', 'manager'] // Empleados NO ven dinero
-  },
-  { 
-    id: 'usuarios', 
-    label: 'Usuarios y Accesos', 
-    icon: Users, 
-    allowedRoles: ['admin'] // SOLO el Admin toca usuarios
-  },
-];
+    { 
+      id: 'resumen', label: 'Resumen General', icon: LayoutDashboard,
+      allowedRoles: ['admin', 'manager', 'employee'] 
+    },
+    { 
+      id: 'usuarios', label: 'Usuarios y Accesos', icon: Users,
+      allowedRoles: ['admin'] // SOLO ADMIN
+    },
+    { 
+      id: 'productos', label: 'Inventario', icon: Package,
+      allowedRoles: ['admin', 'manager'] 
+    },
+    { 
+      id: 'pedidos', label: 'Ventas y Pedidos', icon: ShoppingCart,
+      allowedRoles: ['admin', 'employee'] 
+    },
+    { 
+      id: 'finanzas', label: 'Finanzas', icon: DollarSign,
+      allowedRoles: ['admin', 'manager'] 
+    },
+  ];
 
   const activeItemInfo = menuItems.find(m => m.id === activeModule);
-
-  const hasRole = (requiredRoles: string[]) => {
-  // Si el usuario es admin, tiene acceso a todo
-  if (userRoles.includes('admin')) return true;
-  // Si no, verificamos si tiene alguno de los roles requeridos
-  return requiredRoles.some(r => userRoles.includes(r));
-};
 
   return (
     <div className="flex h-screen bg-gray-100 font-sans overflow-hidden">
 
-      {/* === SIDEBAR === */}
+      {/* SIDEBAR */}
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 z-20 bg-black/50 transition-opacity lg:hidden"
@@ -91,30 +83,31 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           </button>
         </div>
 
+        {/* NAVEGACIÓN FILTRADA POR ROL */}
         <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-2">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4 px-2">Principal</p>
           {menuItems
-          .filter(item => hasRole(item.allowedRoles))
-          .map((item) => {
-            const Icon = item.icon;
-            const isActive = activeModule === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => { setActiveModule(item.id); setIsSidebarOpen(false); }}
-                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 group ${
-                  isActive 
-                    ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/30' 
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <div className="flex items-center space-x-4">
-                  <Icon size={22} className={`${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
-                  <span className="font-medium">{item.label}</span>
-                </div>
-                {isActive && <ChevronRight size={18} className="text-brand-200" />}
-              </button>
-            );
+            .filter(item => hasRole(item.allowedRoles)) // <--- FILTRO MÁGICO
+            .map((item) => {
+              const Icon = item.icon;
+              const isActive = activeModule === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => { setActiveModule(item.id); setIsSidebarOpen(false); }}
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 group ${
+                    isActive 
+                      ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/30' 
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center space-x-4">
+                    <Icon size={22} className={`${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
+                    <span className="font-medium">{item.label}</span>
+                  </div>
+                  {isActive && <ChevronRight size={18} className="text-brand-200" />}
+                </button>
+              );
           })}
         </nav>
 
@@ -126,9 +119,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         </div>
       </aside>
 
-      {/* === ÁREA PRINCIPAL === */}
+      {/* CONTENIDO PRINCIPAL */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        
         <header className="bg-white shadow-sm z-10 h-20 flex items-center px-8 relative">
           <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden text-slate-500 hover:text-brand-600 mr-4 p-2 -ml-2 rounded-lg hover:bg-gray-100">
             <Menu size={28} />
@@ -139,46 +131,64 @@ export default function Dashboard({ onLogout }: DashboardProps) {
               {activeItemInfo?.label}
             </h1>
             <p className="text-sm text-slate-500 hidden sm:block">
-              Resumen general de tu negocio
+              {userRoles.includes('admin') ? 'Vista de Administrador' : 'Panel de Empleado'}
             </p>
           </div>
 
           <div className="flex items-center space-x-4 pl-8 border-l border-gray-200">
             <div className="text-right hidden md:block">
-              <p className="text-sm font-bold text-slate-800">Administrador</p>
-              <p className="text-xs text-slate-500">admin@erp.com</p>
+              <p className="text-sm font-bold text-slate-800 capitalize">{userRoles[0]}</p>
+              <p className="text-xs text-slate-500">Sesión Activa</p>
             </div>
             <div className="h-11 w-11 rounded-full bg-gradient-to-tr from-brand-600 to-brand-400 flex items-center justify-center text-white font-bold shadow-lg border-2 border-white">
-              AD
+              {userRoles[0].charAt(0).toUpperCase()}
             </div>
           </div>
         </header>
 
-        {/* AQUÍ ES DONDE CAMBIA TODO EL CONTENIDO DINÁMICO */}
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50 p-8 relative">
-<div className="max-w-7xl mx-auto h-full">
+          <div className="max-w-7xl mx-auto h-full">
+            
+            {/* RENDERIZADO PROTEGIDO POR ROL */}
+            {activeModule === 'resumen' && hasRole(['admin', 'manager', 'employee']) ? (
+              <div className="space-y-6 animate-fade-in">
+                <StatsCards />
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div className="lg:col-span-2"> <SalesChart /> </div>
+                  <div className="lg:col-span-1"> 
+                    <LowStockWidget onNavigate={() => setActiveModule('productos')} /> 
+                  </div>
+                </div>
+              </div>
 
-    {activeModule === 'resumen' && hasRole(['admin', 'manager', 'employee']) ? (
-       // ... Contenido Resumen
-       <div className="space-y-6 animate-fade-in"> ... </div>
+            ) : activeModule === 'productos' && hasRole(['admin', 'manager']) ? (
+              <ProductsList />
 
-    ) : activeModule === 'usuarios' && hasRole(['admin']) ? ( // Solo Admin
-       <UsersList />
+            ) : activeModule === 'pedidos' && hasRole(['admin', 'employee']) ? (
+              <SalesManager />
 
-    ) : activeModule === 'productos' && hasRole(['admin', 'manager']) ? (
-       <ProductsList />
+            ) : activeModule === 'finanzas' && hasRole(['admin', 'manager']) ? (
+              <div className="space-y-6 animate-fade-in">
+                <div className="flex justify-between items-center mb-4">
+                   <h2 className="text-xl font-bold text-slate-700">Reporte Financiero</h2>
+                </div>
+                <StatsCards />
+                <SalesChart />
+              </div>
 
-    // ... repite para los demás módulos añadiendo && hasRole(...)
+            ) : activeModule === 'usuarios' && hasRole(['admin']) ? (
+              <UsersList />
 
-    ) : (
-       // Mensaje de Acceso Denegado (por si acaso)
-       <div className="h-full flex flex-col items-center justify-center text-slate-400">
-         <Shield size={64} className="mb-4 text-slate-300" />
-         <h2 className="text-xl font-bold">Acceso Restringido</h2>
-         <p>No tienes permisos para ver este módulo.</p>
-       </div>
-    )}
-  </div>
+            ) : (
+              // PANTALLA DE ACCESO DENEGADO
+              <div className="h-full flex flex-col items-center justify-center text-slate-400 animate-fade-in">
+                 <Shield size={64} className="mb-4 text-slate-300" />
+                 <h2 className="text-xl font-bold text-slate-600">Acceso Restringido</h2>
+                 <p>No tienes permisos para ver este módulo.</p>
+              </div>
+            )}
+
+          </div>
         </main>
       </div>
     </div>
