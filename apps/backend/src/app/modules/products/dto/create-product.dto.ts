@@ -20,5 +20,9 @@ export class CreateProductDto {
   stock: number;
 
   @IsString()
+  @IsOptional()
+  image?: string; // <--- Agregar esto
+
+  @IsString()
   category: string;
 }

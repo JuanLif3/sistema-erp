@@ -10,6 +10,7 @@ interface Product {
   name: string;
   price: number;
   stock: number;
+  image?: string;
   category: string;
   isActive: boolean;
 }
@@ -84,6 +85,8 @@ export default function ProductsList() {
                   <th className="px-6 py-4 text-right">Precio</th>
                   <th className="px-6 py-4 text-center">Stock</th>
                   <th className="px-6 py-4 text-center">Estado</th>
+                  <th className="px-6 py-4">Imagen</th> {/* Nueva columna */}
+                  <th className="px-6 py-4">Producto / SKU</th>
                   <th className="px-6 py-4 text-right">Acciones</th>
                 </tr>
               </thead>
@@ -94,6 +97,20 @@ export default function ProductsList() {
                       <div className="font-medium text-slate-800">{product.name}</div>
                       <div className="text-xs text-slate-400 mt-0.5 font-mono">{product.sku}</div>
                     </td>
+                    <td className="px-6 py-4">
+  {/* Si tiene imagen la mostramos, si no un placeholder gris */}
+  {product.image ? (
+    <img 
+      src={product.image} 
+      alt={product.name} 
+      className="h-12 w-12 rounded-lg object-cover border border-slate-200"
+    />
+  ) : (
+    <div className="h-12 w-12 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 border border-slate-200">
+      <Package size={24} />
+    </div>
+  )}
+</td>
                     <td className="px-6 py-4">
                       <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-medium border border-slate-200">
                         {product.category}

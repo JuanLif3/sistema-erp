@@ -26,6 +26,9 @@ export class Product {
   @Column('bool', { default: true })
   isActive: boolean;
 
+  @Column('text', { nullable: true }) // Puede estar vacío si no tiene foto
+  image: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

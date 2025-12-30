@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-
+import { ServeStaticModule } from '@nestjs/serve-static';
 // Importa tus módulos (Nx suele crear alias, pero usaremos rutas relativas por seguridad ahora)
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
@@ -11,6 +11,7 @@ import { FinancesModule } from './modules/finances/finances.module';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { join } from 'path';
 
 @Module({
   imports: [
@@ -28,6 +29,11 @@ import { AppService } from './app.service';
       ssl: {
         rejectUnauthorized: false,
       },
+    }),
+
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', '..', '..', 'uploads'),
+      serveRoot: '/uploads',
     }),
 
     // 3. Módulos de tu ERP
