@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { 
-  Users, Package, ShoppingCart, DollarSign, LogOut, Menu, LayoutDashboard, X, ChevronRight
+  Users, Package, ShoppingCart, DollarSign, LogOut, Menu, LayoutDashboard, X, ChevronRight,
+  Shield
 } from 'lucide-react';
 
 // Importamos todos los módulos
@@ -18,16 +19,49 @@ interface DashboardProps {
 export default function Dashboard({ onLogout }: DashboardProps) {
   const [activeModule, setActiveModule] = useState('resumen');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const userRoles = JSON.parse(localStorage.getItem('erp_roles') || '["employee"]');
 
   const menuItems = [
-    { id: 'resumen', label: 'Resumen General', icon: LayoutDashboard },
-    { id: 'usuarios', label: 'Usuarios y Accesos', icon: Users },
-    { id: 'productos', label: 'Inventario', icon: Package },
-    { id: 'pedidos', label: 'Ventas y Pedidos', icon: ShoppingCart },
-    { id: 'finanzas', label: 'Finanzas', icon: DollarSign },
-  ];
+  { 
+    id: 'resumen', 
+    label: 'Resumen General', 
+    icon: LayoutDashboard,
+    allowedRoles: ['admin', 'manager', 'employee'] // Todos pueden ver el resumen
+  },
+  { 
+    id: 'pedidos', 
+    label: 'Ventas y Pedidos', 
+    icon: ShoppingCart, 
+    allowedRoles: ['admin', 'employee'] // Empleados y Admins venden
+  },
+  { 
+    id: 'productos', 
+    label: 'Inventario', 
+    icon: Package, 
+    allowedRoles: ['admin', 'manager'] // Solo Jefes y Admins tocan inventario
+  },
+  { 
+    id: 'finanzas', 
+    label: 'Finanzas', 
+    icon: DollarSign, 
+    allowedRoles: ['admin', 'manager'] // Empleados NO ven dinero
+  },
+  { 
+    id: 'usuarios', 
+    label: 'Usuarios y Accesos', 
+    icon: Users, 
+    allowedRoles: ['admin'] // SOLO el Admin toca usuarios
+  },
+];
 
   const activeItemInfo = menuItems.find(m => m.id === activeModule);
+
+  const hasRole = (requiredRoles: string[]) => {
+  // Si el usuario es admin, tiene acceso a todo
+  if (userRoles.includes('admin')) return true;
+  // Si no, verificamos si tiene alguno de los roles requeridos
+  return requiredRoles.some(r => userRoles.includes(r));
+};
 
   return (
     <div className="flex h-screen bg-gray-100 font-sans overflow-hidden">
@@ -59,7 +93,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
         <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-2">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4 px-2">Principal</p>
-          {menuItems.map((item) => {
+          {menuItems
+          .filter(item => hasRole(item.allowedRoles))
+          .map((item) => {
             const Icon = item.icon;
             const isActive = activeModule === item.id;
             return (
@@ -120,52 +156,29 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
         {/* AQUÍ ES DONDE CAMBIA TODO EL CONTENIDO DINÁMICO */}
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50 p-8 relative">
-          <div className="max-w-7xl mx-auto h-full">
-            
-            {/* 1. MÓDULO RESUMEN (HOME) */}
-            {activeModule === 'resumen' ? (
-              <div className="space-y-6 animate-fade-in">
-                {/* Tarjetas Superiores */}
-                <StatsCards />
+<div className="max-w-7xl mx-auto h-full">
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Gráfico Principal (Ocupa 2 columnas) */}
-                  <div className="lg:col-span-2">
-                    <SalesChart />
-                  </div>
+    {activeModule === 'resumen' && hasRole(['admin', 'manager', 'employee']) ? (
+       // ... Contenido Resumen
+       <div className="space-y-6 animate-fade-in"> ... </div>
 
-                  {/* Widget Lateral (Ocupa 1 columna) */}
-                  <div className="lg:col-span-1">
-                    <LowStockWidget onNavigate={() => setActiveModule('productos')} />
-                  </div>
-                </div>
-              </div>
+    ) : activeModule === 'usuarios' && hasRole(['admin']) ? ( // Solo Admin
+       <UsersList />
 
-            /* 2. MÓDULO PRODUCTOS */
-            ) : activeModule === 'productos' ? (
-              <ProductsList />
+    ) : activeModule === 'productos' && hasRole(['admin', 'manager']) ? (
+       <ProductsList />
 
-            /* 3. MÓDULO VENTAS/PEDIDOS */
-            ) : activeModule === 'pedidos' ? (
-              <SalesManager />
+    // ... repite para los demás módulos añadiendo && hasRole(...)
 
-            /* 4. MÓDULO FINANZAS */
-            ) : activeModule === 'finanzas' ? (
-              <div className="space-y-6 animate-fade-in">
-                <div className="flex justify-between items-center mb-4">
-                   <h2 className="text-xl font-bold text-slate-700">Reporte Financiero</h2>
-                   <button className="text-brand-600 text-sm font-medium hover:underline">Descargar Reporte</button>
-                </div>
-                <StatsCards />
-                <SalesChart />
-              </div>
-
-            /* 5. MÓDULO USUARIOS (Aún pendiente) */
-            ) : activeModule === 'usuarios' ? (
-              <UsersList />
-            ) : null}
-
-          </div>
+    ) : (
+       // Mensaje de Acceso Denegado (por si acaso)
+       <div className="h-full flex flex-col items-center justify-center text-slate-400">
+         <Shield size={64} className="mb-4 text-slate-300" />
+         <h2 className="text-xl font-bold">Acceso Restringido</h2>
+         <p>No tienes permisos para ver este módulo.</p>
+       </div>
+    )}
+  </div>
         </main>
       </div>
     </div>
