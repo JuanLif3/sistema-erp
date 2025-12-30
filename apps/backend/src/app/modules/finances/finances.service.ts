@@ -1,26 +1,45 @@
 import { Injectable } from '@nestjs/common';
-import { CreateFinanceDto } from './dto/create-finance.dto';
-import { UpdateFinanceDto } from './dto/update-finance.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Order } from '../orders/entities/order.entity';
+// Asegúrate de importar DataSource
+import { DataSource } from 'typeorm'; 
 
 @Injectable()
 export class FinancesService {
-  create(createFinanceDto: CreateFinanceDto) {
-    return 'This action adds a new finance';
+  getSummary() {
+    throw new Error('Method not implemented.');
   }
+  constructor(
+    @InjectRepository(Order)
+    private readonly orderRepository: Repository<Order>,
+    private dataSource: DataSource // <--- Inyectamos esto para consultas crudas
+  ) {}
 
-  findAll() {
-    return `This action returns all finances`;
-  }
+  // ... (Tu método getSummary déjalo igual) ...
 
-  findOne(id: number) {
-    return `This action returns a #${id} finance`;
-  }
+  // 👇 NUEVO MÉTODO PARA EL GRÁFICO
+  async getSalesHistory(days: number) {
+    // 1. Calcular la fecha de inicio (Hace 7, 30 o 365 días)
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
 
-  update(id: number, updateFinanceDto: UpdateFinanceDto) {
-    return `This action updates a #${id} finance`;
-  }
+    // 2. Consulta SQL Mágica
+    // Esta consulta agrupa por día y suma los totales
+    const sales = await this.orderRepository
+      .createQueryBuilder('order')
+      .select("TO_CHAR(order.createdAt, 'YYYY-MM-DD')", 'date') // Formato fecha limpia
+      .addSelect("SUM(order.total)", 'total')
+      .where("order.createdAt >= :startDate", { startDate })
+      .andWhere("order.status = :status", { status: 'completed' })
+      .groupBy("TO_CHAR(order.createdAt, 'YYYY-MM-DD')")
+      .orderBy('date', 'ASC')
+      .getRawMany();
 
-  remove(id: number) {
-    return `This action removes a #${id} finance`;
+    // 3. Formatear para el Frontend
+    return sales.map(item => ({
+      date: item.date,
+      total: Number(item.total) // Convertir de string a numero
+    }));
   }
 }
