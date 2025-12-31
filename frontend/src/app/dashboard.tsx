@@ -127,8 +127,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           <div className="h-10 w-10 rounded-full bg-brand-600 flex items-center justify-center text-white font-bold">{userRoles[0].charAt(0).toUpperCase()}</div>
         </header>
 
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50 p-8">
-          <div className="max-w-7xl mx-auto h-full">
+<main className="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50 p-4 md:p-8"> {/* 👈 Padding reducido en móvil */}
+  <div className="max-w-7xl mx-auto h-full">
 
             {/* RESUMEN ADMIN */}
             {activeModule === 'resumen' && hasRole(['admin']) ? (

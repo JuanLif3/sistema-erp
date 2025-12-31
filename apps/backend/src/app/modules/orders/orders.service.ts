@@ -76,15 +76,19 @@ export class OrdersService {
   }
 
   // --- Paginación y Ordenamiento (Ya implementado) ---
-  async findAll(
+async findAll(
     status?: string, 
     page: number = 1, 
     limit: number = 20,
     sortBy: string = 'createdAt', 
-    sortOrder: 'ASC' | 'DESC' = 'DESC'
+    sortOrder: 'ASC' | 'DESC' = 'DESC',
+    paymentMethod?: string // <--- NUEVO PARÁMETRO
   ) {
-    const whereClause = status ? { status } : {};
+    const whereClause: any = {}; // Usamos any para construir dinámicamente
     
+    if (status) whereClause.status = status;
+    if (paymentMethod) whereClause.paymentMethod = paymentMethod; // <--- FILTRO MÁGICO
+
     const [data, total] = await this.orderRepository.findAndCount({
       where: whereClause,
       relations: ['items', 'items.product', 'user'],

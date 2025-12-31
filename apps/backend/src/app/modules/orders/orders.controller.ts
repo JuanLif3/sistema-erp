@@ -14,19 +14,21 @@ export class OrdersController {
   }
 
   // 👇 ACTUALIZADO: Recibe Query Params
-  @Get()
+@Get()
   findAll(
     @Query('status') status?: string,
-    @Query('page') page = '1',
-    @Query('sortBy') sortBy = 'createdAt', // 'createdAt' | 'total'
-    @Query('order') order = 'DESC'         // 'ASC' | 'DESC'
+    @Query('page') page: string = '1',
+    @Query('sortBy') sortBy: string = 'createdAt',
+    @Query('order') order: string = 'DESC',
+    @Query('paymentMethod') paymentMethod?: string // <--- RECIBIMOS EL DATO
   ) {
     return this.ordersService.findAll(
       status, 
       parseInt(page), 
-      20, // Límite fijo de 20 como pediste
+      20, 
       sortBy,
-      order as 'ASC' | 'DESC'
+      order as 'ASC' | 'DESC',
+      paymentMethod // <--- LO PASAMOS AL SERVICIO
     );
   }
 
