@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Plus, Search, Package, AlertCircle, X, Edit2, Trash2, Power, ArrowUpDown, AlertTriangle } from 'lucide-react';
+import { 
+  Plus, Search, Package, AlertCircle, X, Edit2, Trash2, 
+  Power, ArrowUpDown, AlertTriangle 
+} from 'lucide-react';
 import ProductFormModal from './ProductFormModal';
 
 interface Product {
@@ -18,49 +21,77 @@ interface Product {
 export default function ProductsList() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
   
-  // Filtros
+  // Filtros y Búsqueda
+  const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState('createdAt-DESC');
   const [showLowStock, setShowLowStock] = useState(false);
 
-  // Modales
+  // Estados de Interfaz y Permisos
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
+  const [canEdit, setCanEdit] = useState(false); // 👇 Control de Permisos
 
-  useEffect(() => { fetchProducts(); }, [sortOption, showLowStock]);
+  useEffect(() => {
+    // 1. Verificar Roles (Admin o Manager pueden editar)
+    const roles = JSON.parse(localStorage.getItem('erp_roles') || '[]');
+    setCanEdit(roles.includes('admin') || roles.includes('manager'));
+
+    // 2. Cargar productos
+    fetchProducts();
+  }, [sortOption, showLowStock]);
 
   const fetchProducts = async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('erp_token');
       const [sortBy, order] = sortOption.split('-');
+      
       const response = await axios.get('http://localhost:3000/api/products', {
         headers: { Authorization: `Bearer ${token}` },
-        params: { sortBy, order, lowStock: showLowStock }
+        params: { 
+          sortBy, 
+          order, 
+          lowStock: showLowStock 
+        }
       });
       setProducts(response.data);
-    } catch (error) { console.error("Error cargando productos", error); }
-    finally { setLoading(false); }
+    } catch (error) {
+      console.error("Error cargando productos", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // Cambiar Estado (Activo/Inactivo)
   const toggleStatus = async (product: Product) => {
+    if (!canEdit) return; // Protección extra
     try {
       const token = localStorage.getItem('erp_token');
       await axios.patch(`http://localhost:3000/api/products/${product.id}`, {
         isActive: !product.isActive 
       }, { headers: { Authorization: `Bearer ${token}` } });
       
-      // Actualización optimista
+      // Actualización optimista en UI
       setProducts(products.map(p => p.id === product.id ? { ...p, isActive: !p.isActive } : p));
     } catch (error) { alert("Error cambiando estado"); }
   };
 
-  const handleEdit = (product: Product) => { setEditingProduct(product); setIsModalOpen(true); };
-  const handleCloseModal = () => { setIsModalOpen(false); setTimeout(() => setEditingProduct(undefined), 300); };
-  const requestDelete = (id: string) => { setProductToDelete(id); };
-  
+  const handleEdit = (product: Product) => {
+    setEditingProduct(product);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setTimeout(() => setEditingProduct(undefined), 300);
+  };
+
+  const requestDelete = (id: string) => {
+    setProductToDelete(id);
+  };
+
   const confirmDelete = async () => {
     if (!productToDelete) return;
     try {
@@ -76,6 +107,7 @@ export default function ProductsList() {
     }
   };
 
+  // Filtrado local por nombre/SKU
   const filteredProducts = products.filter(product => 
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     product.sku.toLowerCase().includes(searchTerm.toLowerCase())
@@ -90,16 +122,21 @@ export default function ProductsList() {
           <h2 className="text-2xl font-bold text-slate-800">Inventario</h2>
           <p className="text-slate-500 text-sm">Gestiona tu catálogo de productos</p>
         </div>
-        <button 
-          onClick={() => { setEditingProduct(undefined); setIsModalOpen(true); }}
-          className="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2.5 rounded-lg flex items-center gap-2 font-medium transition-colors shadow-sm"
-        >
-          <Plus size={20} /> Nuevo Producto
-        </button>
+        
+        {/* Botón Crear: Solo si tiene permiso */}
+        {canEdit && (
+          <button 
+            onClick={() => { setEditingProduct(undefined); setIsModalOpen(true); }}
+            className="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2.5 rounded-lg flex items-center gap-2 font-medium transition-colors shadow-sm"
+          >
+            <Plus size={20} /> Nuevo Producto
+          </button>
+        )}
       </div>
 
-      {/* BARRA DE FILTROS */}
+      {/* BARRA DE HERRAMIENTAS */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col lg:flex-row gap-4">
+        {/* Buscador */}
         <div className="relative flex-1">
           <Search className="absolute left-3 top-3 text-slate-400" size={20} />
           <input 
@@ -109,12 +146,22 @@ export default function ProductsList() {
             onChange={(e) => setSearchTerm(e.target.value)} 
             className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all text-slate-700"
           />
-          {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"><X size={18} /></button>}
+          {searchTerm && (
+            <button onClick={() => setSearchTerm('')} className="absolute right-3 top-3 text-slate-400 hover:text-slate-600">
+              <X size={18} />
+            </button>
+          )}
         </div>
+
+        {/* Filtros */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative group min-w-[180px]">
              <ArrowUpDown className="absolute left-3 top-2.5 text-slate-400" size={18} />
-             <select value={sortOption} onChange={(e) => setSortOption(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500 appearance-none cursor-pointer hover:bg-slate-50 transition-colors">
+             <select 
+               value={sortOption} 
+               onChange={(e) => setSortOption(e.target.value)} 
+               className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500 appearance-none cursor-pointer hover:bg-slate-50 transition-colors"
+             >
                <option value="createdAt-DESC">Más Recientes</option>
                <option value="price-DESC">Precio: Mayor a Menor</option>
                <option value="price-ASC">Precio: Menor a Mayor</option>
@@ -122,15 +169,24 @@ export default function ProductsList() {
                <option value="stock-ASC">Stock: Menor a Mayor</option>
              </select>
           </div>
+
           <div className="h-8 w-px bg-slate-200 hidden sm:block"></div>
-          <button onClick={() => setShowLowStock(!showLowStock)} className={`px-4 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-all border ${showLowStock ? 'bg-amber-50 text-amber-700 border-amber-200 shadow-sm ring-2 ring-amber-500/20' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-800'}`}>
+
+          <button 
+            onClick={() => setShowLowStock(!showLowStock)} 
+            className={`px-4 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-all border ${
+              showLowStock 
+                ? 'bg-amber-50 text-amber-700 border-amber-200 shadow-sm ring-2 ring-amber-500/20' 
+                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-800'
+            }`}
+          >
             <AlertTriangle size={18} className={showLowStock ? 'text-amber-600 fill-amber-600' : 'text-slate-400'} />
             {showLowStock ? 'Mostrando Stock Bajo' : 'Ver Stock Bajo'}
           </button>
         </div>
       </div>
 
-      {/* TABLA DE PRODUCTOS */}
+      {/* TABLA RESPONSIVA */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-slate-400">Cargando inventario...</div>
@@ -146,18 +202,21 @@ export default function ProductsList() {
                 <tr>
                   <th className="px-6 py-4">Imagen</th>
                   <th className="px-6 py-4">Producto / SKU</th>
+                  {/* Oculto en móvil */}
                   <th className="px-6 py-4 hidden md:table-cell">Categoría</th>
                   <th className="px-6 py-4 text-right">Precio</th>
                   <th className="px-6 py-4 text-center">Stock</th>
-                  <th className="px-6 py-4 text-center">Estado</th>
-                  <th className="px-6 py-4 text-center">Acciones</th>
+                  {/* Oculto en móvil */}
+                  <th className="px-6 py-4 text-center hidden md:table-cell">Estado</th>
+                  {/* Acciones solo si tiene permiso */}
+                  {canEdit && <th className="px-6 py-4 text-center">Acciones</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredProducts.map((product) => (
                   <tr key={product.id} className={`hover:bg-slate-50/80 transition-colors ${!product.isActive ? 'opacity-60 bg-slate-50' : ''}`}>
                      
-                     {/* 1. Imagen (SIN DUPLICADOS) */}
+                     {/* Imagen */}
                      <td className="px-6 py-4">
                         {product.image ? (
                           <img src={product.image} alt={product.name} className={`h-10 w-10 rounded object-cover border border-slate-200 ${!product.isActive && 'grayscale'}`} />
@@ -168,25 +227,25 @@ export default function ProductsList() {
                         )}
                     </td>
 
-                    {/* 2. Nombre */}
+                    {/* Nombre y SKU */}
                     <td className="px-6 py-4">
                       <div className="font-medium text-slate-800">{product.name}</div>
                       <div className="text-xs text-slate-400 mt-0.5 font-mono">{product.sku}</div>
                     </td>
 
-                    {/* 3. Categoría (Oculta en móvil) */}
+                    {/* Categoría (Desktop) */}
                     <td className="px-6 py-4 hidden md:table-cell">
                       <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-medium border border-slate-200">
                         {product.category}
                       </span>
                     </td>
 
-                    {/* 4. Precio */}
+                    {/* Precio */}
                     <td className="px-6 py-4 text-right font-medium text-slate-800">
                       ${Number(product.price).toLocaleString('es-CL')}
                     </td>
 
-                    {/* 5. Stock */}
+                    {/* Stock */}
                     <td className="px-6 py-4 text-center">
                       <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border
                         ${product.stock > 5 ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'}
@@ -196,16 +255,17 @@ export default function ProductsList() {
                       </div>
                     </td>
 
-                    {/* 6. ESTADO (SWITCH INTERACTIVO RESTAURADO) */}
-                    <td className="px-6 py-4 text-center">
+                    {/* Estado (Desktop & Interactivo solo si canEdit) */}
+                    <td className="px-6 py-4 text-center hidden md:table-cell">
                       <button
+                        disabled={!canEdit}
                         onClick={() => toggleStatus(product)}
                         className={`group relative inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold border transition-all duration-200 ease-in-out
                           ${product.isActive 
                             ? 'bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-slate-100 hover:text-slate-500 hover:border-slate-200' 
                             : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-emerald-100 hover:text-emerald-700 hover:border-emerald-200'}
+                          ${!canEdit && 'cursor-default opacity-80 pointer-events-none'}
                         `}
-                        title={product.isActive ? "Clic para desactivar" : "Clic para activar"}
                       >
                         <span className="flex items-center gap-1">
                           <Power size={12} className={product.isActive ? 'text-emerald-600' : 'text-slate-400'} />
@@ -214,25 +274,27 @@ export default function ProductsList() {
                       </button>
                     </td>
 
-                    {/* 7. ACCIONES (Solo una vez) */}
-                    <td className="px-6 py-4 text-center">
-                      <div className="flex justify-center gap-2">
-                        <button 
-                          onClick={() => handleEdit(product)}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100"
-                          title="Editar"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button 
-                          onClick={() => requestDelete(product.id)}
-                          className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
-                          title="Eliminar"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
+                    {/* Acciones (Solo Admin/Manager) */}
+                    {canEdit && (
+                      <td className="px-6 py-4 text-center">
+                        <div className="flex justify-center gap-2">
+                          <button 
+                            onClick={() => handleEdit(product)}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100"
+                            title="Editar"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button 
+                            onClick={() => requestDelete(product.id)}
+                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
+                            title="Eliminar"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -241,7 +303,7 @@ export default function ProductsList() {
         )}
       </div>
 
-      {/* Modal Eliminar */}
+      {/* Modal Confirmación Eliminar */}
       {productToDelete && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100">
@@ -250,7 +312,7 @@ export default function ProductsList() {
                 <AlertCircle size={24} />
               </div>
               <h3 className="text-lg font-bold text-slate-800 mb-2">¿Eliminar producto?</h3>
-              <p className="text-sm text-slate-500 mb-6">El producto dejará de estar visible para nuevas ventas.</p>
+              <p className="text-sm text-slate-500 mb-6">El producto se eliminará permanentemente si no tiene ventas.</p>
               <div className="flex gap-3 justify-center">
                 <button onClick={() => setProductToDelete(null)} className="px-4 py-2 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg font-medium">Cancelar</button>
                 <button onClick={confirmDelete} className="px-4 py-2 text-white bg-red-600 hover:bg-red-700 rounded-lg font-medium shadow-md">Sí, Eliminar</button>
@@ -260,7 +322,12 @@ export default function ProductsList() {
         </div>
       )}
 
-      <ProductFormModal isOpen={isModalOpen} onClose={handleCloseModal} onSuccess={fetchProducts} productToEdit={editingProduct} />
+      <ProductFormModal 
+        isOpen={isModalOpen} 
+        onClose={handleCloseModal} 
+        onSuccess={fetchProducts} 
+        productToEdit={editingProduct} 
+      />
     </div>
   );
 }

@@ -11,11 +11,17 @@ export class Order {
   total: number;
 
   @Column({ default: 'completed' })
-  status: string;
+  status: string; // 'completed', 'cancelled'
 
-  // 👇 NUEVO CAMPO: Método de Pago
   @Column({ default: 'cash' }) 
-  paymentMethod: string; // 'cash', 'card', 'transfer'
+  paymentMethod: string;
+
+  // 👇 NUEVOS CAMPOS PARA EL FLUJO DE BORRADO
+  @Column({ default: 'none' }) 
+  cancellationStatus: string; // 'none', 'pending', 'rejected'
+
+  @Column({ nullable: true })
+  cancellationReason: string;
 
   @CreateDateColumn()
   createdAt: Date;

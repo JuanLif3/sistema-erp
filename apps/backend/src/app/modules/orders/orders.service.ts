@@ -115,6 +115,7 @@ export class OrdersService {
     });
   }
 
+// 3. CANCELACIÓN REAL (Lógica existente modificada para limpiar estado)
   async cancelOrder(id: string) {
     const order = await this.orderRepository.findOne({ 
       where: { id },
@@ -122,8 +123,9 @@ export class OrdersService {
     });
 
     if (!order) throw new Error('Orden no encontrada');
-    if (order.status === 'cancelled') throw new Error('La orden ya está cancelada');
+    if (order.status === 'cancelled') throw new Error('Ya está cancelada');
 
+    // Devolver Stock
     for (const item of order.items) {
       if (item.product) {
         item.product.stock += item.quantity;
@@ -132,6 +134,32 @@ export class OrdersService {
     }
 
     order.status = 'cancelled';
+    order.cancellationStatus = 'approved'; // Marcamos como aprobado
     return this.orderRepository.save(order);
   }
+
+  // 1. SOLICITAR CANCELACIÓN (Empleado)
+  async requestCancellation(id: string, reason: string) {
+    const order = await this.orderRepository.findOneBy({ id });
+    if (!order) throw new Error('Orden no encontrada');
+    
+    order.cancellationStatus = 'pending';
+    order.cancellationReason = reason;
+    return this.orderRepository.save(order);
+  }
+
+  // 2. RESOLVER SOLICITUD (Admin)
+  async resolveCancellation(id: string, approved: boolean) {
+    if (approved) {
+      // Si aprueba, ejecutamos la cancelación real
+      return this.cancelOrder(id); 
+    } else {
+      // Si rechaza, solo cambiamos el estado
+      const order = await this.orderRepository.findOneBy({ id });
+      order.cancellationStatus = 'rejected'; // O vuelve a 'none' si prefieres limpiar
+      return this.orderRepository.save(order);
+    }
+  }
+
+  
 }

@@ -4,6 +4,7 @@ import {
   Users, Package, ShoppingCart, DollarSign, LogOut, Menu, LayoutDashboard, X, ChevronRight, Shield, Wand2, 
   BarChart3, Wallet // Iconos nuevos
 } from 'lucide-react';
+import PendingRequestsWidget from './components/PendingRequestsWidget';
 
 // Módulos
 import ProductsList from './modules/products/ProductsList';
@@ -89,6 +90,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
   return (
     <div className="flex h-screen bg-gray-100 font-sans overflow-hidden">
+      
 
       {/* SIDEBAR */}
       {isSidebarOpen && <div className="fixed inset-0 z-20 bg-black/50 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
@@ -133,6 +135,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             {/* RESUMEN ADMIN */}
             {activeModule === 'resumen' && hasRole(['admin']) ? (
               <div className="space-y-6 animate-fade-in">
+                <PendingRequestsWidget />
                 <StatsCards />
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   <div className="lg:col-span-2"> <SalesChart /> </div>

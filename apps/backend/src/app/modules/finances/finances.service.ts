@@ -55,6 +55,12 @@ async getSummary(startDate?: Date, endDate?: Date) {
     const totalExpensesQuery = await expenseQuery.select('SUM(expense.amount)', 'sum').getRawOne();
     const totalExpenses = Number(totalExpensesQuery?.sum || 0);
 
+    const pendingRequests = await this.orderRepository.find({
+      where: { cancellationStatus: 'pending' },
+      relations: ['user', 'items', 'items.product'], // Traemos datos útiles
+      order: { createdAt: 'DESC' }
+    });
+
     return {
       totalRevenue: revenue,
       totalOrders: totalOrders,
@@ -62,9 +68,12 @@ async getSummary(startDate?: Date, endDate?: Date) {
       avgTicket: avgTicket,
       totalExpenses: totalExpenses,
       netProfit: revenue - totalExpenses,
+      pendingRequests: pendingRequests,
       lastUpdated: new Date()
     };
   }
+
+  
 
   // ===========================================================================
   // 2. GESTIÓN DE GASTOS (CRUD)
