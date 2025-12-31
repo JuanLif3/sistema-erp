@@ -1,6 +1,6 @@
 import { 
   Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, 
-  UseInterceptors, UploadedFile, BadRequestException, Query // <--- Importar Query
+  UseInterceptors, UploadedFile, BadRequestException, Query 
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -33,10 +33,20 @@ export class ProductsController {
     return this.productsService.create(createProductDto);
   }
 
-  // 👇 ACTUALIZADO: Acepta el parámetro ?active=true
+  // 👇 ACTUALIZADO: Recibe los nuevos filtros
   @Get()
-  findAll(@Query('active') active?: string) {
-    return this.productsService.findAll(active === 'true');
+  findAll(
+    @Query('active') active?: string,
+    @Query('lowStock') lowStock?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('order') order?: string
+  ) {
+    return this.productsService.findAll(
+      active === 'true',
+      lowStock === 'true',
+      sortBy,
+      order as 'ASC' | 'DESC'
+    );
   }
 
   @Get(':id')

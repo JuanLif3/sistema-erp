@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, LessThanOrEqual } from 'typeorm'; // 👈 IMPORTANTE: LessThanOrEqual
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Product } from './entities/product.entity';
@@ -24,14 +24,27 @@ export class ProductsService {
     }
   }
 
-  // 👇 ACTUALIZADO: Lógica de filtrado
-  findAll(activeOnly?: boolean) {
-    // Si activeOnly es true, filtramos por isActive: true. Si no, traemos todo.
-    const where = activeOnly ? { isActive: true } : {};
+  // 👇 ACTUALIZADO: Soporta filtros y ordenamiento
+  findAll(
+    activeOnly?: boolean, 
+    lowStock?: boolean, 
+    sortBy: string = 'createdAt', 
+    order: 'ASC' | 'DESC' = 'DESC'
+  ) {
+    const where: any = {};
+    
+    if (activeOnly) where.isActive = true;
+    // Si piden stock bajo, filtramos productos con 5 o menos unidades
+    if (lowStock) where.stock = LessThanOrEqual(5);
+
+    const orderConfig: any = {};
+    if (sortBy) {
+        orderConfig[sortBy] = order;
+    }
 
     return this.productRepository.find({
-      order: { createdAt: 'DESC' },
-      where: where 
+      where: where,
+      order: orderConfig
     });
   }
 
@@ -46,6 +59,7 @@ export class ProductsService {
       id: id,
       ...updateProductDto,
     });
+
     if (!product) throw new NotFoundException(`Producto con ID ${id} no encontrado`);
     return this.productRepository.save(product);
   }
