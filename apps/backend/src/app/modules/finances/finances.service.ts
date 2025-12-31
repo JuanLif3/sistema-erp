@@ -13,43 +13,37 @@ export class FinancesService {
     private dataSource: DataSource
   ) {}
 
-  // --- 1. RESUMEN FILTRABLE ---
+  // --- 1. RESUMEN (Tarjetas) ---
   async getSummary(startDate?: Date, endDate?: Date) {
     const query = this.orderRepository.createQueryBuilder('order')
       .where('order.status = :status', { status: 'completed' });
 
-    // Filtro de fecha si existe
     if (startDate && endDate) {
       query.andWhere('order.createdAt BETWEEN :startDate AND :endDate', { startDate, endDate });
     }
 
     const totalRevenueQuery = await query.select('SUM(order.total)', 'sum').getRawOne();
     const totalOrders = await query.getCount();
-
-    // Promedio
     const revenue = Number(totalRevenueQuery?.sum || 0);
     const avgTicket = totalOrders > 0 ? revenue / totalOrders : 0;
 
-    // 👇 CORRECCIÓN: Calculamos las órdenes de HOY (independiente del filtro)
+    // Ventas de HOY (Siempre fijo para el dashboard)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
-    const todayOrders = await this.orderRepository
-      .createQueryBuilder('order')
-      .where('order.createdAt >= :today', { today })
-      .andWhere('order.status = :status', { status: 'completed' })
-      .getCount();
+    const todayOrders = await this.orderRepository.count({
+      where: { status: 'completed', createdAt: Between(today, new Date()) }
+    });
 
     return {
       totalRevenue: revenue,
       totalOrders: totalOrders,
-      todayOrders: todayOrders, // <--- ¡AQUÍ ESTÁ LA CLAVE!
+      todayOrders: todayOrders,
       avgTicket: avgTicket,
       lastUpdated: new Date()
     };
   }
 
-  // --- 2. HISTORIAL FILTRABLE ---
+  // --- 2. HISTORIAL (Gráfico) ---
   async getSalesHistory(startDate: Date, endDate: Date) {
     const sales = await this.orderRepository
       .createQueryBuilder('order')
@@ -61,13 +55,10 @@ export class FinancesService {
       .orderBy('date', 'ASC')
       .getRawMany();
 
-    return sales.map(item => ({
-      date: item.date,
-      total: Number(item.total)
-    }));
+    return sales.map(item => ({ date: item.date, total: Number(item.total) }));
   }
 
-  // --- 3. TOP PRODUCTOS FILTRABLE ---
+  // --- 3. TOP PRODUCTOS (PDF y Widget) ---
   async getTopProducts(startDate?: Date, endDate?: Date) {
     const query = this.dataSource.getRepository(OrderItem)
       .createQueryBuilder('item')
@@ -92,38 +83,29 @@ export class FinancesService {
       .getRawMany();
   }
 
-  // --- 4. VENTAS POR CATEGORÍA (DONAS) ---
-  async getSalesByCategory(startDate?: Date, endDate?: Date) {
-    const query = this.dataSource.getRepository(OrderItem)
+  // --- 4. VENTAS POR CATEGORÍA ---
+  async getSalesByCategory() {
+    return this.dataSource.getRepository(OrderItem)
       .createQueryBuilder('item')
       .leftJoin('item.product', 'product')
       .leftJoin('item.order', 'order')
       .select('product.category', 'name')
       .addSelect('SUM(item.quantity * item.priceAtPurchase)', 'value')
-      .where('order.status = :status', { status: 'completed' });
-
-    if (startDate && endDate) {
-      query.andWhere('order.createdAt BETWEEN :startDate AND :endDate', { startDate, endDate });
-    }
-
-    return query
+      .where('order.status = :status', { status: 'completed' })
       .groupBy('product.category')
       .orderBy('value', 'DESC')
       .getRawMany();
   }
 
-  // --- 5. ÚLTIMAS TRANSACCIONES ---
-  async getRecentOrders(startDate?: Date, endDate?: Date) {
-    const where: any = { status: 'completed' };
-    if (startDate && endDate) {
-      where.createdAt = Between(startDate, endDate);
-    }
-
+  // --- 5. TODAS LAS VENTAS (Exclusivo para PDF - Sin límite) ---
+  async getAllOrdersForReport(startDate: Date, endDate: Date) {
     return this.orderRepository.find({
-      where,
+      where: {
+        status: 'completed',
+        createdAt: Between(startDate, endDate)
+      },
       order: { createdAt: 'DESC' },
-      take: 15,
-      relations: ['user']
+      relations: ['user'] // Traemos usuario para mostrar nombre
     });
   }
 
@@ -131,27 +113,24 @@ export class FinancesService {
   async simulateSales() {
     const orders: Order[] = [];
     const today = new Date();
-
     for (let i = 0; i < 30; i++) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
       const dailyCount = Math.floor(Math.random() * 8); 
-
       for (let j = 0; j < dailyCount; j++) {
         const randomTotal = Math.floor(Math.random() * 145000) + 5000;
-        const order = this.orderRepository.create({
-          total: randomTotal,
-          status: 'completed',
-          createdAt: date,
-        });
-        orders.push(order);
+        orders.push(this.orderRepository.create({
+          total: randomTotal, status: 'completed', createdAt: date
+        }));
       }
     }
     await this.orderRepository.save(orders);
-    return { message: 'Datos simulados generados.' };
+    return { message: 'Datos simulados.' };
   }
 
-  // --- 7. GENERADOR DE PDF ---
+  // ===========================================================================
+  // 7. GENERADOR DE PDF MAESTRO
+  // ===========================================================================
   async generateReport(start?: Date, end?: Date): Promise<Buffer> {
     const endDate = end || new Date();
     const startDate = start || new Date(new Date().setDate(endDate.getDate() - 30));
@@ -162,27 +141,29 @@ export class FinancesService {
     doc.on('data', buffers.push.bind(buffers));
     doc.on('end', () => { /* empty */ });
 
-    // Datos
+    // --- CARGAR DATOS ---
     const summary = await this.getSummary(startDate, endDate);
-    const history = await this.getSalesHistory(startDate, endDate);
     const topProducts = await this.getTopProducts(startDate, endDate);
-    const recentOrders = await this.getRecentOrders(startDate, endDate);
+    // 👇 AQUI CAMBIÓ: Usamos getAllOrdersForReport para traer TODO
+    const allOrders = await this.getAllOrdersForReport(startDate, endDate);
 
-    // Diseño
+    // --- ESTILOS ---
     const primaryColor = '#1e3a8a';
     const secondaryColor = '#64748b';
     const lightBg = '#f1f5f9';
 
-    // Header
+    // 1. ENCABEZADO
     doc.rect(50, 45, 40, 40).fill(primaryColor);
     doc.fillColor('#fff').fontSize(18).font('Helvetica-Bold').text('ERP', 56, 58);
+    
     doc.fillColor(primaryColor).fontSize(20).text('REPORTE DE VENTAS', 110, 50);
     doc.fillColor(secondaryColor).fontSize(10).font('Helvetica')
        .text(`Periodo: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`, 110, 75);
-    doc.text(`Generado el: ${new Date().toLocaleDateString()}`, 400, 65, { align: 'right', width: 150 });
+
+    doc.text(`Total Registros: ${allOrders.length}`, 400, 65, { align: 'right', width: 150 });
     doc.moveTo(50, 100).lineTo(550, 100).stroke(secondaryColor);
 
-    // KPIs
+    // 2. KPIS
     let y = 130;
     doc.fillColor(primaryColor).fontSize(14).font('Helvetica-Bold').text('Resumen del Periodo', 50, y);
     y += 25;
@@ -193,19 +174,20 @@ export class FinancesService {
       doc.fillColor(primaryColor).fontSize(16).font('Helvetica-Bold').text(value, x + 15, y + 30);
     };
 
-    drawCard(50, 'Ingresos', `$${summary.totalRevenue.toLocaleString()}`);
-    drawCard(220, 'Ventas', summary.totalOrders.toString());
-    drawCard(390, 'Ticket Medio', `$${Math.round(summary.avgTicket).toLocaleString()}`);
+    drawCard(50, 'Ventas Totales', `$${summary.totalRevenue.toLocaleString()}`);
+    drawCard(220, 'Pedidos Totales', summary.totalOrders.toString());
+    drawCard(390, 'Ticket Promedio', `$${Math.round(summary.avgTicket).toLocaleString()}`);
 
     y += 80;
 
-    // Tabla Productos
-    doc.fillColor(primaryColor).fontSize(14).font('Helvetica-Bold').text('Productos Más Vendidos', 50, y);
+    // 3. TOP PRODUCTOS
+    doc.fillColor(primaryColor).fontSize(14).font('Helvetica-Bold').text('Top 5 Productos Más Vendidos', 50, y);
     y += 25;
 
+    // Header Tabla Top
     doc.rect(50, y, 500, 20).fill(primaryColor);
     doc.fillColor('#fff').fontSize(9);
-    doc.text('PRODUCTO', 60, y + 6).text('CANTIDAD', 350, y + 6).text('TOTAL', 450, y + 6);
+    doc.text('PRODUCTO', 60, y + 6).text('UNIDADES', 350, y + 6).text('TOTAL', 450, y + 6);
     y += 20;
 
     doc.font('Helvetica').fillColor('#334155');
@@ -218,29 +200,52 @@ export class FinancesService {
       y += 20;
     });
 
-    y += 30;
+    y += 40;
 
-    // Tabla Historial
-    if (y < 600) {
-        doc.fillColor(primaryColor).fontSize(14).font('Helvetica-Bold').text('Detalle de Ventas', 50, y);
-        y += 25;
-        doc.rect(50, y, 500, 20).fill(primaryColor);
-        doc.fillColor('#fff').fontSize(9);
-        doc.text('FECHA / HORA', 60, y + 6).text('CLIENTE', 250, y + 6).text('MONTO', 450, y + 6);
+    // 4. LISTADO DE TODOS LOS PEDIDOS
+    doc.fillColor(primaryColor).fontSize(14).font('Helvetica-Bold').text(`Detalle de Pedidos (${allOrders.length})`, 50, y);
+    y += 25;
+
+    // Header Tabla Pedidos
+    const drawOrderHeader = (yPos: number) => {
+      doc.rect(50, yPos, 500, 20).fill(primaryColor);
+      doc.fillColor('#fff').fontSize(9).font('Helvetica-Bold');
+      doc.text('FECHA', 60, yPos + 6);
+      doc.text('CLIENTE', 200, yPos + 6);
+      doc.text('ID VENTA', 350, yPos + 6);
+      doc.text('MONTO', 450, yPos + 6);
+    };
+
+    drawOrderHeader(y);
+    y += 20;
+
+    // Body Tabla Pedidos (Con paginación automática)
+    doc.font('Helvetica').fontSize(9);
+    
+    allOrders.forEach((order, i) => {
+      // Si llegamos al final de la hoja, nueva página
+      if (y > 720) {
+        doc.addPage();
+        y = 50;
+        drawOrderHeader(y); // Repetir cabecera
         y += 20;
+      }
 
-        recentOrders.forEach((order, i) => {
-            if (y > 720) return;
-            doc.rect(50, y, 500, 20).fill(i % 2 === 0 ? '#fff' : lightBg);
-            doc.fillColor('#334155');
-            doc.text(new Date(order.createdAt).toLocaleString(), 60, y + 6);
-            doc.text(order.user ? order.user.fullName : 'Cliente General', 250, y + 6);
-            doc.text(`$${Number(order.total).toLocaleString()}`, 450, y + 6);
-            y += 20;
-        });
-    }
+      doc.rect(50, y, 500, 20).fill(i % 2 === 0 ? '#fff' : lightBg);
+      doc.fillColor('#334155');
+      
+      const dateStr = new Date(order.createdAt).toLocaleDateString() + ' ' + new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const clientName = order.user ? order.user.fullName : 'Cliente General';
 
-    doc.fillColor('#999').fontSize(8).text('Fin del reporte.', 50, 750, { align: 'center' });
+      doc.text(dateStr, 60, y + 6);
+      doc.text(clientName.substring(0, 25), 200, y + 6);
+      doc.text(order.id.split('-')[0], 350, y + 6);
+      doc.text(`$${Number(order.total).toLocaleString()}`, 450, y + 6);
+      y += 20;
+    });
+
+    // Pie de página final
+    doc.fillColor('#999').fontSize(8).text('Fin del reporte generado por ERP Pro.', 50, 750, { align: 'center' });
     doc.end();
 
     return new Promise((resolve) => resolve(Buffer.concat(buffers)));
