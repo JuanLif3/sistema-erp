@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import { ShoppingCart, Trash2, CheckCircle, PackageOpen, Search, X } from 'lucide-react';
+import { ShoppingCart, Trash2, CheckCircle, PackageOpen, Search, X, AlertTriangle } from 'lucide-react';
 
 interface Product {
   id: string;
@@ -8,7 +8,8 @@ interface Product {
   sku: string;
   price: number;
   stock: number;
-  image?: string; // Soportamos imagen
+  image?: string;
+  isActive: boolean; // Importante tenerlo tipado
 }
 
 interface CartItem extends Product {
@@ -20,8 +21,6 @@ export default function POS() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  
-  // 👇 1. ESTADO PARA BÚSQUEDA
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
@@ -31,17 +30,17 @@ export default function POS() {
   const fetchProducts = async () => {
     try {
       const token = localStorage.getItem('erp_token');
-      const response = await axios.get('http://localhost:3000/api/products', {
+      // 👇 AQUÍ ESTÁ EL CAMBIO MÁGICO: ?active=true
+      const response = await axios.get('http://localhost:3000/api/products?active=true', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      // Solo productos con stock
+      // Filtramos adicionalmente por stock > 0 si lo deseas, o mostramos sin stock pero activos
       setProducts(response.data.filter((p: Product) => p.stock > 0));
     } catch (error) {
       console.error("Error cargando inventario", error);
     }
   };
 
-  // 👇 2. FILTRADO INTELIGENTE
   const filteredProducts = products.filter(product => 
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     product.sku.toLowerCase().includes(searchTerm.toLowerCase())
@@ -67,7 +66,6 @@ export default function POS() {
   const handleSale = async () => {
     if (cart.length === 0) return;
     setLoading(true);
-
     try {
       const token = localStorage.getItem('erp_token');
       const payload = {
@@ -76,16 +74,13 @@ export default function POS() {
           quantity: item.quantity
         }))
       };
-
       await axios.post('http://localhost:3000/api/orders', payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
-
       setSuccess(true);
       setCart([]);
       fetchProducts(); 
       setTimeout(() => setSuccess(false), 3000);
-
     } catch (error) {
       console.error("Error procesando venta", error);
       alert("Error al procesar la venta.");
@@ -104,10 +99,9 @@ export default function POS() {
         <div className="p-4 border-b border-slate-100 bg-slate-50 flex flex-col sm:flex-row justify-between items-center gap-4">
           <h2 className="font-bold text-slate-700 flex items-center gap-2">
             <PackageOpen size={20} />
-            Catálogo
+            Catálogo de Ventas
           </h2>
           
-          {/* 👇 3. INPUT DE BÚSQUEDA */}
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
             <input 
@@ -136,7 +130,6 @@ export default function POS() {
               onClick={() => addToCart(product)}
               className="group text-left p-3 rounded-xl border border-slate-200 hover:border-brand-500 hover:shadow-md transition-all bg-white flex gap-3 h-24"
             >
-              {/* Miniatura de imagen en el POS */}
               <div className="h-full w-20 bg-slate-100 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden border border-slate-100">
                 {product.image ? (
                    <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
@@ -163,14 +156,15 @@ export default function POS() {
           ))}
           
           {filteredProducts.length === 0 && (
-            <div className="col-span-full text-center py-10 text-slate-400">
-              {searchTerm ? "No se encontraron productos." : "No hay stock disponible."}
+            <div className="col-span-full flex flex-col items-center justify-center py-10 text-slate-400">
+              <PackageOpen size={48} className="mb-2 opacity-50"/>
+              <p>{searchTerm ? "No se encontraron productos." : "No hay productos activos con stock."}</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* 🛒 DERECHA: Carrito (Sin cambios mayores) */}
+      {/* 🛒 DERECHA: Carrito */}
       <div className="w-full lg:w-96 bg-white rounded-xl shadow-xl border border-slate-200 flex flex-col">
         <div className="p-4 bg-brand-600 text-white rounded-t-xl flex justify-between items-center">
           <h2 className="font-bold flex items-center gap-2">

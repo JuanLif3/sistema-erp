@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Plus, Search, Package, AlertCircle, X, Edit2, Trash2, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Package, AlertCircle, X, Edit2, Trash2, Power } from 'lucide-react';
 import ProductFormModal from './ProductFormModal';
 
 interface Product {
@@ -12,7 +12,7 @@ interface Product {
   category: string;
   isActive: boolean;
   image?: string;
-  description: string; // Aseguramos que descripción esté en la interfaz
+  description: string;
 }
 
 export default function ProductsList() {
@@ -23,7 +23,7 @@ export default function ProductsList() {
   // Estados para Modales
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
-  const [productToDelete, setProductToDelete] = useState<string | null>(null); // Nuevo estado para eliminar
+  const [productToDelete, setProductToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProducts();
@@ -43,41 +43,56 @@ export default function ProductsList() {
     }
   };
 
-  // 👇 FUNCIÓN EDITAR CORRECTA
-  const handleEdit = (product: Product) => {
-    setEditingProduct(product); // 1. Guardamos el producto a editar
-    setIsModalOpen(true);       // 2. Abrimos el modal
+  // 👇 NUEVO: FUNCIÓN PARA CAMBIAR ESTADO (Activo/Inactivo)
+  const toggleStatus = async (product: Product) => {
+    try {
+      const token = localStorage.getItem('erp_token');
+      // Enviamos el estado contrario al actual
+      await axios.patch(`http://localhost:3000/api/products/${product.id}`, {
+        isActive: !product.isActive 
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      // Actualizamos la lista localmente para que sea rápido
+      setProducts(products.map(p => 
+        p.id === product.id ? { ...p, isActive: !p.isActive } : p
+      ));
+    } catch (error) {
+      console.error("Error cambiando estado", error);
+      alert("No se pudo cambiar el estado del producto.");
+    }
   };
 
-  // Cuando cerramos el modal, limpiamos
+  const handleEdit = (product: Product) => {
+    setEditingProduct(product);
+    setIsModalOpen(true);
+  };
+
   const handleCloseModal = () => {
     setIsModalOpen(false);
-    setTimeout(() => setEditingProduct(undefined), 300); // Pequeño delay para que no parpadee al cerrar
+    setTimeout(() => setEditingProduct(undefined), 300);
   };
 
-  // 👇 FUNCIÓN SOLICITAR ELIMINAR (Abre modal)
   const requestDelete = (id: string) => {
     setProductToDelete(id);
   };
 
-  // 👇 FUNCIÓN CONFIRMAR ELIMINAR (Acción real)
   const confirmDelete = async () => {
     if (!productToDelete) return;
-    
     try {
       const token = localStorage.getItem('erp_token');
       await axios.delete(`http://localhost:3000/api/products/${productToDelete}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      fetchProducts(); // Recargar lista
-      setProductToDelete(null); // Cerrar modal
+      fetchProducts();
+      setProductToDelete(null);
     } catch (error) {
       console.error(error);
       alert("Error al eliminar producto");
     }
   };
 
-  // Filtrado
   const filteredProducts = products.filter(product => 
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     product.sku.toLowerCase().includes(searchTerm.toLowerCase())
@@ -139,16 +154,15 @@ export default function ProductsList() {
                   <th className="px-6 py-4 text-right">Precio</th>
                   <th className="px-6 py-4 text-center">Stock</th>
                   <th className="px-6 py-4 text-center">Estado</th>
-                  <th className="px-6 py-4 text-center">Acciones</th> {/* Columna Acciones */}
+                  <th className="px-6 py-4 text-center">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredProducts.map((product) => (
-                  <tr key={product.id} className="hover:bg-slate-50/80 transition-colors">
-                    {/* 1. Imagen */}
-                    <td className="px-6 py-4">
+                  <tr key={product.id} className={`hover:bg-slate-50/80 transition-colors ${!product.isActive ? 'opacity-60 bg-slate-50' : ''}`}>
+                     <td className="px-6 py-4">
                       {product.image ? (
-                        <img src={product.image} alt={product.name} className="h-10 w-10 rounded object-cover border border-slate-200" />
+                        <img src={product.image} alt={product.name} className={`h-10 w-10 rounded object-cover border border-slate-200 ${!product.isActive && 'grayscale'}`} />
                       ) : (
                         <div className="h-10 w-10 rounded bg-slate-100 flex items-center justify-center text-slate-400">
                           <Package size={20} />
@@ -156,25 +170,21 @@ export default function ProductsList() {
                       )}
                     </td>
 
-                    {/* 2. Producto / SKU */}
                     <td className="px-6 py-4">
                       <div className="font-medium text-slate-800">{product.name}</div>
                       <div className="text-xs text-slate-400 mt-0.5 font-mono">{product.sku}</div>
                     </td>
 
-                    {/* 3. Categoría */}
                     <td className="px-6 py-4">
                       <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-medium border border-slate-200">
                         {product.category}
                       </span>
                     </td>
 
-                    {/* 4. Precio */}
                     <td className="px-6 py-4 text-right font-medium text-slate-800">
                       ${Number(product.price).toLocaleString()}
                     </td>
 
-                    {/* 5. Stock */}
                     <td className="px-6 py-4 text-center">
                       <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border
                         ${product.stock > 5 ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'}
@@ -184,12 +194,25 @@ export default function ProductsList() {
                       </div>
                     </td>
 
-                    {/* 6. Estado */}
+                    {/* 👇 COLUMNA ESTADO INTERACTIVA */}
                     <td className="px-6 py-4 text-center">
-                      <div className={`w-2 h-2 rounded-full mx-auto ${product.isActive ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                      <button
+                        onClick={() => toggleStatus(product)}
+                        className={`group relative inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold border transition-all duration-200 ease-in-out
+                          ${product.isActive 
+                            ? 'bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-red-100 hover:text-red-700 hover:border-red-200' 
+                            : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-emerald-100 hover:text-emerald-700 hover:border-emerald-200'}
+                        `}
+                        title={product.isActive ? "Clic para desactivar" : "Clic para activar"}
+                      >
+                        {/* Texto Cambiante al Hover (Opcional, aquí uso iconos o texto simple) */}
+                        <span className="flex items-center gap-1">
+                          <Power size={12} className={product.isActive ? 'text-emerald-600' : 'text-slate-400'} />
+                          {product.isActive ? 'Activo' : 'Inactivo'}
+                        </span>
+                      </button>
                     </td>
 
-                    {/* 7. Acciones (Botones AQUÍ) */}
                     <td className="px-6 py-4 text-center">
                       <div className="flex justify-center gap-2">
                         <button 
@@ -200,7 +223,7 @@ export default function ProductsList() {
                           <Edit2 size={16} />
                         </button>
                         <button 
-                          onClick={() => requestDelete(product.id)}
+                          onClick={() => requestDelete(product.id)} // Esto ahora será un "Eliminar definitivo" o "Archivar" según prefieras, pero el toggle de arriba es para el estado
                           className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
                           title="Eliminar"
                         >
@@ -216,17 +239,18 @@ export default function ProductsList() {
         )}
       </div>
 
-      {/* 👇 MODAL CONFIRMACIÓN ELIMINAR */}
+      {/* Modal Confirmación Eliminar (Igual que antes) */}
       {productToDelete && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100">
+          {/* ... (código del modal de eliminar ya existente) ... */}
+           <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100">
             <div className="p-6 text-center">
               <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
-                <AlertTriangle size={24} />
+                <AlertCircle size={24} />
               </div>
               <h3 className="text-lg font-bold text-slate-800 mb-2">¿Eliminar producto?</h3>
               <p className="text-sm text-slate-500 mb-6">
-                El producto dejará de estar visible para nuevas ventas, pero se mantendrá en el historial.
+                El producto dejará de estar visible para nuevas ventas. (También puedes solo desactivarlo).
               </p>
               
               <div className="flex gap-3 justify-center">
@@ -248,12 +272,11 @@ export default function ProductsList() {
         </div>
       )}
 
-      {/* Modal de Formulario (Crear/Editar) */}
       <ProductFormModal 
         isOpen={isModalOpen} 
         onClose={handleCloseModal} 
         onSuccess={fetchProducts}
-        productToEdit={editingProduct} // 👈 ESTO ES CRUCIAL PARA QUE FUNCIONE EDITAR
+        productToEdit={editingProduct} 
       />
     </div>
   );

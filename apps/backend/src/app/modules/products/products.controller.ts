@@ -1,6 +1,6 @@
 import { 
   Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, 
-  UseInterceptors, UploadedFile, BadRequestException // <--- IMPORTS NUEVOS
+  UseInterceptors, UploadedFile, BadRequestException, Query // <--- Importar Query
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -16,22 +16,16 @@ export class ProductsController {
   @Post('upload')
   @UseInterceptors(FileInterceptor('file', {
     storage: diskStorage({
-      destination: './uploads', // Se guardan en la carpeta raíz 'uploads'
+      destination: './uploads',
       filename: (req, file, cb) => {
-        // Generamos un nombre único para no sobreescribir archivos
         const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
         cb(null, `${randomName}${extname(file.originalname)}`);
       }
     })
   }))
   uploadImage(@UploadedFile() file: Express.Multer.File) {
-    if (!file) {
-      throw new BadRequestException('No se subió ningún archivo');
-    }
-    // Devolvemos la URL pública
-    return { 
-      url: `http://localhost:3000/uploads/${file.filename}` 
-    };
+    if (!file) throw new BadRequestException('No se subió ningún archivo');
+    return { url: `http://localhost:3000/uploads/${file.filename}` };
   }
   
   @Post()
@@ -39,9 +33,10 @@ export class ProductsController {
     return this.productsService.create(createProductDto);
   }
 
+  // 👇 ACTUALIZADO: Acepta el parámetro ?active=true
   @Get()
-  findAll() {
-    return this.productsService.findAll();
+  findAll(@Query('active') active?: string) {
+    return this.productsService.findAll(active === 'true');
   }
 
   @Get(':id')

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -13,34 +13,46 @@ export class ProductsService {
   ) {}
 
   async create(createProductDto: CreateProductDto) {
-    const product = this.productRepository.create(createProductDto);
-    return await this.productRepository.save(product);
+    try {
+      const product = this.productRepository.create(createProductDto);
+      return await this.productRepository.save(product);
+    } catch (error) {
+      if (error.code === '23505') {
+        throw new BadRequestException('El código SKU ya existe en otro producto');
+      }
+      throw error;
+    }
   }
 
-  findAll() {
+  // 👇 ACTUALIZADO: Lógica de filtrado
+  findAll(activeOnly?: boolean) {
+    // Si activeOnly es true, filtramos por isActive: true. Si no, traemos todo.
+    const where = activeOnly ? { isActive: true } : {};
+
     return this.productRepository.find({
       order: { createdAt: 'DESC' },
-      where: { isActive: true } // Solo mostramos los activos por defecto
+      where: where 
     });
   }
 
   async findOne(id: string) {
     const product = await this.productRepository.findOneBy({ id });
-    if (!product) throw new NotFoundException(`Producto ${id} no encontrado`);
+    if (!product) throw new NotFoundException(`Producto con ID ${id} no encontrado`);
     return product;
   }
 
-  // 👇 ACTUALIZAR PRODUCTO
   async update(id: string, updateProductDto: UpdateProductDto) {
-    const product = await this.findOne(id);
-    this.productRepository.merge(product, updateProductDto);
-    return await this.productRepository.save(product);
+    const product = await this.productRepository.preload({
+      id: id,
+      ...updateProductDto,
+    });
+    if (!product) throw new NotFoundException(`Producto con ID ${id} no encontrado`);
+    return this.productRepository.save(product);
   }
 
-  // 👇 ELIMINAR (Soft Delete)
   async remove(id: string) {
     const product = await this.findOne(id);
-    product.isActive = false; // Lo marcamos como inactivo
-    return await this.productRepository.save(product);
+    product.isActive = false;
+    return this.productRepository.save(product);
   }
 }
