@@ -12,6 +12,11 @@ import { FinancesModule } from './modules/finances/finances.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { join } from 'path';
+import { Expense } from './modules/expenses/entities/expense.entity';
+import { User } from './modules/users/entities/user.entity';
+import { Product } from './modules/products/entities/product.entity';
+import { Order } from './modules/orders/entities/order.entity';
+import { OrderItem } from './modules/orders/entities/order-item.entity';
 
 @Module({
   imports: [
@@ -24,6 +29,7 @@ import { join } from 'path';
     TypeOrmModule.forRoot({
       type: 'postgres',
       url: process.env.DATABASE_URL, // Lee la URL de tu .env
+      entities: [User, Product, Order, OrderItem, Expense], 
       autoLoadEntities: true, // Carga las entidades (User, Product, etc) automáticamente
       synchronize: true, // ⚠️ Crea las tablas solas (Genial para desarrollo)
       ssl: {

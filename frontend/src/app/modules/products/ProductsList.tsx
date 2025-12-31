@@ -72,14 +72,24 @@ export default function ProductsList() {
   const handleEdit = (product: Product) => { setEditingProduct(product); setIsModalOpen(true); };
   const handleCloseModal = () => { setIsModalOpen(false); setTimeout(() => setEditingProduct(undefined), 300); };
   const requestDelete = (id: string) => { setProductToDelete(id); };
-  const confirmDelete = async () => {
+const confirmDelete = async () => {
     if (!productToDelete) return;
     try {
       const token = localStorage.getItem('erp_token');
-      await axios.delete(`http://localhost:3000/api/products/${productToDelete}`, { headers: { Authorization: `Bearer ${token}` } });
+      await axios.delete(`http://localhost:3000/api/products/${productToDelete}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      // Si éxito:
       fetchProducts();
       setProductToDelete(null);
-    } catch (error) { alert("Error al eliminar"); }
+      
+    } catch (error: any) {
+      console.error(error);
+      // 👇 MEJORA: Mostramos el mensaje real del servidor si existe
+      const message = error.response?.data?.message || "Error al eliminar producto";
+      alert("⚠️ " + message);
+    }
   };
 
   const filteredProducts = products.filter(product => 

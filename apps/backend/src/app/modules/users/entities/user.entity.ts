@@ -27,4 +27,5 @@ export class User {
 
     @UpdateDateColumn()
     updatedAt: Date;
+  orders: any;
 }

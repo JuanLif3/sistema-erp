@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThanOrEqual } from 'typeorm'; // 👈 IMPORTANTE: LessThanOrEqual
+import { Repository, LessThanOrEqual } from 'typeorm';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Product } from './entities/product.entity';
@@ -24,7 +24,6 @@ export class ProductsService {
     }
   }
 
-  // 👇 ACTUALIZADO: Soporta filtros y ordenamiento
   findAll(
     activeOnly?: boolean, 
     lowStock?: boolean, 
@@ -32,20 +31,13 @@ export class ProductsService {
     order: 'ASC' | 'DESC' = 'DESC'
   ) {
     const where: any = {};
-    
     if (activeOnly) where.isActive = true;
-    // Si piden stock bajo, filtramos productos con 5 o menos unidades
     if (lowStock) where.stock = LessThanOrEqual(5);
 
     const orderConfig: any = {};
-    if (sortBy) {
-        orderConfig[sortBy] = order;
-    }
+    if (sortBy) orderConfig[sortBy] = order;
 
-    return this.productRepository.find({
-      where: where,
-      order: orderConfig
-    });
+    return this.productRepository.find({ where, order: orderConfig });
   }
 
   async findOne(id: string) {
@@ -59,14 +51,27 @@ export class ProductsService {
       id: id,
       ...updateProductDto,
     });
-
     if (!product) throw new NotFoundException(`Producto con ID ${id} no encontrado`);
     return this.productRepository.save(product);
   }
 
+  // 👇 ACTUALIZADO: ELIMINACIÓN FÍSICA (HARD DELETE)
   async remove(id: string) {
-    const product = await this.findOne(id);
-    product.isActive = false;
-    return this.productRepository.save(product);
+    try {
+      // Intentamos borrar el registro de la base de datos
+      const result = await this.productRepository.delete(id);
+      
+      if (result.affected === 0) {
+        throw new NotFoundException(`Producto con ID ${id} no encontrado`);
+      }
+      return result;
+    } catch (error: any) {
+      // Código '23503' en Postgres significa violación de llave foránea (Foreign Key Violation)
+      // Esto pasa si intentas borrar un producto que ya está en la tabla 'order_items'
+      if (error.code === '23503') {
+        throw new BadRequestException('No se puede eliminar este producto porque ya tiene historial de ventas. Por favor, desactívalo en su lugar.');
+      }
+      throw error;
+    }
   }
 }

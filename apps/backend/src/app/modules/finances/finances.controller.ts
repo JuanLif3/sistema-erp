@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards, Query, Res } from '@nestjs/common';
+import { Controller, Get, UseGuards, Query, Res, Post, Body, Delete, Param } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FinancesService } from './finances.service';
 import { Response } from 'express';
@@ -7,6 +7,21 @@ import { Response } from 'express';
 @Controller('finances')
 export class FinancesController {
   constructor(private readonly financesService: FinancesService) {}
+
+  @Post('expenses')
+  createExpense(@Body() body: any) {
+    return this.financesService.createExpense(body);
+  }
+
+  @Get('expenses')
+  getExpenses() {
+    return this.financesService.getExpenses();
+  }
+
+  @Delete('expenses/:id')
+  deleteExpense(@Param('id') id: string) {
+    return this.financesService.deleteExpense(id);
+  }
 
   @Get('summary')
   getSummary() {
@@ -93,4 +108,6 @@ export class FinancesController {
     });
     res.end(buffer);
   }
+
+  
 }

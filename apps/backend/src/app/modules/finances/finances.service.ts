@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, Between } from 'typeorm';
 import { Order } from '../orders/entities/order.entity';
 import { OrderItem } from '../orders/entities/order-item.entity';
+import { Expense } from '../expenses/entities/expense.entity'; // Asegúrate de tener esta entidad creada
 import PDFDocument from 'pdfkit';
 
 @Injectable()
@@ -10,11 +11,16 @@ export class FinancesService {
   constructor(
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
+    @InjectRepository(Expense)
+    private readonly expenseRepository: Repository<Expense>, // 👈 Inyección de Gastos
     private dataSource: DataSource
   ) {}
 
-  // --- 1. RESUMEN (Tarjetas) ---
+  // ===========================================================================
+  // 1. RESUMEN FINANCIERO (Ventas + Gastos)
+  // ===========================================================================
   async getSummary(startDate?: Date, endDate?: Date) {
+    // A. LÓGICA DE VENTAS (INGRESOS)
     const query = this.orderRepository.createQueryBuilder('order')
       .where('order.status = :status', { status: 'completed' });
 
@@ -27,23 +33,56 @@ export class FinancesService {
     const revenue = Number(totalRevenueQuery?.sum || 0);
     const avgTicket = totalOrders > 0 ? revenue / totalOrders : 0;
 
-    // Ventas de HOY (Siempre fijo para el dashboard)
+    // Ventas de HOY
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayOrders = await this.orderRepository.count({
       where: { status: 'completed', createdAt: Between(today, new Date()) }
     });
 
+    // B. LÓGICA DE GASTOS (EGRESOS)
+    const expenseQuery = this.expenseRepository.createQueryBuilder('expense');
+    
+    if (startDate && endDate) {
+      expenseQuery.where('expense.date BETWEEN :startDate AND :endDate', { startDate, endDate });
+    }
+
+    const totalExpensesQuery = await expenseQuery.select('SUM(expense.amount)', 'sum').getRawOne();
+    const totalExpenses = Number(totalExpensesQuery?.sum || 0);
+
+    // C. RETORNO COMBINADO
     return {
       totalRevenue: revenue,
       totalOrders: totalOrders,
       todayOrders: todayOrders,
       avgTicket: avgTicket,
+      totalExpenses: totalExpenses,       // 👈 Total Gastos
+      netProfit: revenue - totalExpenses, // 👈 Utilidad (Ganancia)
       lastUpdated: new Date()
     };
   }
 
-  // --- 2. HISTORIAL (Gráfico) ---
+  // ===========================================================================
+  // 2. GESTIÓN DE GASTOS (CRUD)
+  // ===========================================================================
+  async createExpense(data: { description: string, amount: number, category: string }) {
+    const expense = this.expenseRepository.create(data);
+    return this.expenseRepository.save(expense);
+  }
+
+  async getExpenses() {
+    return this.expenseRepository.find({ order: { date: 'DESC' } });
+  }
+
+  async deleteExpense(id: string) {
+    return this.expenseRepository.delete(id);
+  }
+
+  // ===========================================================================
+  // 3. REPORTES Y GRÁFICOS
+  // ===========================================================================
+
+  // Historial de Ventas (Gráfico)
   async getSalesHistory(startDate: Date, endDate: Date) {
     const sales = await this.orderRepository
       .createQueryBuilder('order')
@@ -58,7 +97,7 @@ export class FinancesService {
     return sales.map(item => ({ date: item.date, total: Number(item.total) }));
   }
 
-  // --- 3. TOP PRODUCTOS (PDF y Widget) ---
+  // Top Productos
   async getTopProducts(startDate?: Date, endDate?: Date) {
     const query = this.dataSource.getRepository(OrderItem)
       .createQueryBuilder('item')
@@ -83,7 +122,7 @@ export class FinancesService {
       .getRawMany();
   }
 
-  // --- 4. VENTAS POR CATEGORÍA ---
+  // Ventas por Categoría (Donas)
   async getSalesByCategory() {
     return this.dataSource.getRepository(OrderItem)
       .createQueryBuilder('item')
@@ -97,7 +136,7 @@ export class FinancesService {
       .getRawMany();
   }
 
-  // --- 5. TODAS LAS VENTAS (Exclusivo para PDF - Sin límite) ---
+  // Todas las ventas para el reporte
   async getAllOrdersForReport(startDate: Date, endDate: Date) {
     return this.orderRepository.find({
       where: {
@@ -105,11 +144,11 @@ export class FinancesService {
         createdAt: Between(startDate, endDate)
       },
       order: { createdAt: 'DESC' },
-      relations: ['user'] // Traemos usuario para mostrar nombre
+      relations: ['user']
     });
   }
 
-  // --- 6. SIMULADOR ---
+  // Simulador
   async simulateSales() {
     const orders: Order[] = [];
     const today = new Date();
@@ -129,7 +168,7 @@ export class FinancesService {
   }
 
   // ===========================================================================
-  // 7. GENERADOR DE PDF MAESTRO
+  // 4. GENERADOR DE PDF MAESTRO
   // ===========================================================================
   async generateReport(start?: Date, end?: Date): Promise<Buffer> {
     const endDate = end || new Date();
@@ -144,7 +183,6 @@ export class FinancesService {
     // --- CARGAR DATOS ---
     const summary = await this.getSummary(startDate, endDate);
     const topProducts = await this.getTopProducts(startDate, endDate);
-    // 👇 AQUI CAMBIÓ: Usamos getAllOrdersForReport para traer TODO
     const allOrders = await this.getAllOrdersForReport(startDate, endDate);
 
     // --- ESTILOS ---
@@ -174,9 +212,20 @@ export class FinancesService {
       doc.fillColor(primaryColor).fontSize(16).font('Helvetica-Bold').text(value, x + 15, y + 30);
     };
 
+    // Usamos los datos calculados en getSummary
     drawCard(50, 'Ventas Totales', `$${summary.totalRevenue.toLocaleString()}`);
     drawCard(220, 'Pedidos Totales', summary.totalOrders.toString());
     drawCard(390, 'Ticket Promedio', `$${Math.round(summary.avgTicket).toLocaleString()}`);
+    
+    // Segunda fila de KPIs (Gastos y Utilidad)
+    y += 70;
+    drawCard(50, 'Total Gastos', `$${summary.totalExpenses.toLocaleString()}`);
+    
+    // Color dinámico para la utilidad (Rojo si es negativa)
+    const profitColor = summary.netProfit >= 0 ? primaryColor : '#ef4444';
+    doc.roundedRect(220, y, 155, 60, 5).fillAndStroke('#f8fafc', '#e2e8f0');
+    doc.fillColor(secondaryColor).fontSize(9).font('Helvetica').text('UTILIDAD NETA', 235, y + 15);
+    doc.fillColor(profitColor).fontSize(16).font('Helvetica-Bold').text(`$${summary.netProfit.toLocaleString()}`, 235, y + 30);
 
     y += 80;
 
@@ -184,7 +233,6 @@ export class FinancesService {
     doc.fillColor(primaryColor).fontSize(14).font('Helvetica-Bold').text('Top 5 Productos Más Vendidos', 50, y);
     y += 25;
 
-    // Header Tabla Top
     doc.rect(50, y, 500, 20).fill(primaryColor);
     doc.fillColor('#fff').fontSize(9);
     doc.text('PRODUCTO', 60, y + 6).text('UNIDADES', 350, y + 6).text('TOTAL', 450, y + 6);
@@ -206,7 +254,6 @@ export class FinancesService {
     doc.fillColor(primaryColor).fontSize(14).font('Helvetica-Bold').text(`Detalle de Pedidos (${allOrders.length})`, 50, y);
     y += 25;
 
-    // Header Tabla Pedidos
     const drawOrderHeader = (yPos: number) => {
       doc.rect(50, yPos, 500, 20).fill(primaryColor);
       doc.fillColor('#fff').fontSize(9).font('Helvetica-Bold');
@@ -219,15 +266,13 @@ export class FinancesService {
     drawOrderHeader(y);
     y += 20;
 
-    // Body Tabla Pedidos (Con paginación automática)
     doc.font('Helvetica').fontSize(9);
     
     allOrders.forEach((order, i) => {
-      // Si llegamos al final de la hoja, nueva página
       if (y > 720) {
         doc.addPage();
         y = 50;
-        drawOrderHeader(y); // Repetir cabecera
+        drawOrderHeader(y);
         y += 20;
       }
 
@@ -244,7 +289,6 @@ export class FinancesService {
       y += 20;
     });
 
-    // Pie de página final
     doc.fillColor('#999').fontSize(8).text('Fin del reporte generado por ERP Pro.', 50, 750, { align: 'center' });
     doc.end();
 

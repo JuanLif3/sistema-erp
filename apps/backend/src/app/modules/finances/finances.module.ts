@@ -3,10 +3,14 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { FinancesService } from './finances.service';
 import { FinancesController } from './finances.controller';
 import { Order } from '../orders/entities/order.entity';
-import { OrderItem } from '../orders/entities/order-item.entity'; // <--- Importante
+// 👇 1. Importar la entidad Expense
+import { Expense } from '../expenses/entities/expense.entity'; 
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Order, OrderItem])],
+  imports: [
+    // 👇 2. Agregar Expense al array
+    TypeOrmModule.forFeature([Order, Expense]) 
+  ],
   controllers: [FinancesController],
   providers: [FinancesService],
 })

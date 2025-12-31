@@ -24,6 +24,7 @@ export class OrdersService {
       order.total = 0;
       order.status = 'completed'; // Aseguramos estado por defecto
       order.items = [];
+      order.paymentMethod = createOrderDto.paymentMethod || 'cash';
 
       let calculatedTotal = 0;
 
