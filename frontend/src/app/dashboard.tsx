@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import axios from 'axios'; // <--- IMPORTANTE
 import { 
-  Users, Package, ShoppingCart, DollarSign, LogOut, Menu, LayoutDashboard, X, ChevronRight, Shield
+  Users, Package, ShoppingCart, DollarSign, LogOut, Menu, LayoutDashboard, X, ChevronRight, Shield,
+  Wand2
 } from 'lucide-react';
 
 // Módulos
@@ -11,6 +12,8 @@ import StatsCards from './components/StatsCards';
 import LowStockWidget from './components/LowStockWidget';
 import SalesChart from './components/SalesChart';
 import UsersList from './modules/users/UsersList';
+import CategoryChart from './components/CategoryChart';
+import TopProductsChart from './components/TopProductsChart';
 
 interface DashboardProps {
   onLogout: () => void;
@@ -23,6 +26,23 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     start: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
     end: new Date().toISOString().split('T')[0]
 });
+
+const handleSimulate = async () => {
+    try {
+      const token = localStorage.getItem('erp_token');
+      // eslint-disable-next-line no-restricted-globals
+      if(confirm("¿Quieres generar datos de prueba para los últimos 30 días? Esto afectará los gráficos.")) {
+        await axios.get('http://localhost:3000/api/finances/simulate', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        alert("¡Datos generados! Recargando página...");
+        window.location.reload(); // Recargamos para ver el gráfico nuevo
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Error al simular");
+    }
+  };
 
   // 1. LEER ROLES
   const userRoles = JSON.parse(localStorage.getItem('erp_roles') || '["employee"]');
@@ -161,48 +181,39 @@ const handleDownloadReport = async () => {
 
             /* MÓDULO FINANZAS (CON BOTÓN DE REPORTE) */
 ) : activeModule === 'finanzas' && hasRole(['admin', 'manager']) ? (
-          <div className="space-y-6 animate-fade-in">
-            <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4 mb-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-               <div>
-                 <h2 className="text-xl font-bold text-slate-700">Reporte Financiero</h2>
-                 <p className="text-sm text-slate-500">Selecciona el rango de fechas para el PDF</p>
-               </div>
-
-               <div className="flex items-center gap-3">
-                 {/* Input DESDE */}
-                 <div className="flex flex-col">
-                   <label className="text-xs font-semibold text-slate-500 mb-1">Desde</label>
-                   <input 
-                     type="date" 
-                     value={dateRange.start}
-                     onChange={(e) => setDateRange({...dateRange, start: e.target.value})}
-                     className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-brand-500 outline-none"
-                   />
-                 </div>
-
-                 {/* Input HASTA */}
-                 <div className="flex flex-col">
-                   <label className="text-xs font-semibold text-slate-500 mb-1">Hasta</label>
-                   <input 
-                     type="date" 
-                     value={dateRange.end}
-                     onChange={(e) => setDateRange({...dateRange, end: e.target.value})}
-                     className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-brand-500 outline-none"
-                   />
-                 </div>
-
-                 {/* Botón Descargar */}
-                 <button 
-                   onClick={handleDownloadReport}
-                   className="bg-slate-900 text-white hover:bg-black px-4 py-2 rounded-lg text-sm font-medium shadow-md transition-all flex items-center gap-2 h-fit mt-auto"
-                 >
+          <div className="space-y-6 animate-fade-in pb-10">
+            {/* Header y Botones (Mantener igual) */}
+            <div className="flex justify-between items-center mb-4">
+               <h2 className="text-xl font-bold text-slate-700">Reporte Financiero</h2>
+               <div className="flex gap-2">
+                 <button onClick={handleDownloadReport} className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-all flex items-center gap-2">
                    📄 Descargar PDF
                  </button>
                </div>
             </div>
 
+            {/* 1. Tarjetas Superiores */}
             <StatsCards />
-            <SalesChart />
+
+            {/* 2. Fila Principal: Tendencia + Categorías */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <SalesChart />
+              </div>
+              <div className="lg:col-span-1">
+                <CategoryChart />
+              </div>
+            </div>
+
+            {/* 3. Fila Secundaria: Top Productos + Stock */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <TopProductsChart />
+              </div>
+              <div className="lg:col-span-1">
+                <LowStockWidget onNavigate={() => setActiveModule('productos')} />
+              </div>
+            </div>
           </div>
 
             ) : (
