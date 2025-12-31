@@ -69,12 +69,33 @@ export class OrdersService {
     }
   }
 
-  findAll() {
+  async findAll(status?: string) { // Modificamos para filtrar opcionalmente
+    const whereClause = status ? { status } : {}; // Si no hay status, trae todo (o ajusta según prefieras)
+    
     return this.orderRepository.find({
-      // CAMBIO AQUÍ: Quitamos 'user' de las relaciones.
-      // Solo traemos los items y el detalle del producto vendido.
-      relations: ['items', 'items.product'], 
+      where: whereClause,
+      relations: ['items', 'items.product', 'user'],
       order: { createdAt: 'DESC' }
     });
+  }
+
+  async cancelOrder(id: string) {
+    const order = await this.orderRepository.findOne({ 
+      where: { id },
+      relations: ['items', 'items.product'] 
+    });
+
+    if (!order) throw new Error('Orden no encontrada');
+    if (order.status === 'cancelled') throw new Error('La orden ya está cancelada');
+
+    // 1. Devolver Stock (IMPORTANTE)
+    for (const item of order.items) {
+      item.product.stock += item.quantity;
+      await this.dataSource.getRepository(Product).save(item.product);
+    }
+
+    // 2. Cambiar estado
+    order.status = 'cancelled';
+    return this.orderRepository.save(order);
   }
 }
