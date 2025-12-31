@@ -13,7 +13,7 @@ export class FinancesController {
     return this.financesService.getSummary();
   }
 
-  // 👇 ACTUALIZADO: Acepta Días O Fechas específicas
+  // 👇 ACTUALIZADO: Lógica de fechas corregida para incluir todo el día de hoy
   @Get('history')
   getHistory(
     @Query('days') days?: string,
@@ -24,17 +24,25 @@ export class FinancesController {
     let endDate: Date;
 
     if (startDateStr && endDateStr) {
-      // MODO RANGO: Usamos las fechas que envió el usuario
+      // MODO RANGO PERSONALIZADO
       startDate = new Date(startDateStr);
       endDate = new Date(endDateStr);
-      // Ajustamos al final del día para incluir todas las ventas de la fecha final
+      // Ajustamos al final del día
       endDate.setHours(23, 59, 59, 999);
+      // Ajustamos al inicio del día (opcional pero recomendable)
+      startDate.setHours(0, 0, 0, 0);
     } else {
-      // MODO RÁPIDO: Usamos los días (7, 30, etc.)
+      // MODO PRESET (7 días, 30 días, etc.)
       const daysCount = days ? parseInt(days) : 30;
+      
       endDate = new Date();
+      // ¡CLAVE! Forzamos el final del día de hoy para no perder ventas por Timezone
+      endDate.setHours(23, 59, 59, 999);
+
       startDate = new Date();
       startDate.setDate(startDate.getDate() - daysCount);
+      // Forzamos el inicio del día para tener barras completas
+      startDate.setHours(0, 0, 0, 0);
     }
 
     return this.financesService.getSalesHistory(startDate, endDate);
@@ -48,8 +56,13 @@ export class FinancesController {
   @Get('top-products')
   getTopProducts() {
     const endDate = new Date();
+    // También ajustamos aquí para consistencia
+    endDate.setHours(23, 59, 59, 999); 
+    
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - 30);
+    startDate.setHours(0, 0, 0, 0);
+    
     return this.financesService.getTopProducts(startDate, endDate);
   }
 
@@ -66,7 +79,10 @@ export class FinancesController {
   ) {
     const start = startDate ? new Date(startDate) : undefined;
     const end = endDate ? new Date(endDate) : undefined;
+    
+    // El servicio ya maneja defaults, pero si vienen fechas, aseguramos el final del día
     if (end) end.setHours(23, 59, 59, 999);
+    if (start) start.setHours(0, 0, 0, 0);
 
     const buffer = await this.financesService.generateReport(start, end);
 
