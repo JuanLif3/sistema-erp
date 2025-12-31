@@ -5,6 +5,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { Order } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { Product } from '../products/entities/product.entity';
+import { User } from '../users/entities/user.entity'; // 👈 Importar User
 
 @Injectable()
 export class OrdersService {
@@ -14,32 +15,38 @@ export class OrdersService {
     private dataSource: DataSource
   ) {}
 
-  async create(createOrderDto: CreateOrderDto) {
+  // 👇 ACTUALIZADO: Ahora recibe 'currentUser'
+  async create(createOrderDto: CreateOrderDto, currentUser: any) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
+      // 1. Buscamos al vendedor en la BD usando el ID del token
+      const seller = await queryRunner.manager.findOne(User, { where: { id: currentUser.userId } });
+      if (!seller) throw new Error('Usuario vendedor no encontrado');
+
       const order = new Order();
       order.total = 0;
-      order.status = 'completed'; // Aseguramos estado por defecto
-      order.items = [];
+      order.status = 'completed';
       order.paymentMethod = createOrderDto.paymentMethod || 'cash';
+      
+      // 👇 ASIGNACIÓN CLAVE: Guardamos quién hizo la venta
+      order.user = seller; 
+      
+      order.items = [];
 
       let calculatedTotal = 0;
 
-      // 1. Validar Stock y Calcular Total
       for (const itemDto of createOrderDto.items) {
         const product = await queryRunner.manager.findOne(Product, { where: { id: itemDto.productId } });
         
         if (!product) throw new Error(`Producto ${itemDto.productId} no encontrado`);
         if (product.stock < itemDto.quantity) throw new Error(`Stock insuficiente para ${product.name}`);
 
-        // Restar Stock
         product.stock -= itemDto.quantity;
         await queryRunner.manager.save(product);
 
-        // Crear Item
         const orderItem = new OrderItem();
         orderItem.product = product;
         orderItem.quantity = itemDto.quantity;
@@ -51,21 +58,16 @@ export class OrdersService {
 
       order.total = calculatedTotal;
       
-      // 2. Guardar Orden (Para obtener ID)
       const savedOrder = await queryRunner.manager.save(Order, order);
       
-      // 3. Guardar Items vinculados
       for (const item of order.items) {
-        item.order = savedOrder; // <--- AQUÍ SE CREA EL CICLO
+        item.order = savedOrder;
         await queryRunner.manager.save(OrderItem, item);
-        
-        // 👇 LA SOLUCIÓN: Romper el ciclo antes de devolver el JSON
-        // Eliminamos la referencia 'order' del item en memoria (no en BD)
         delete (item as any).order; 
       }
 
       await queryRunner.commitTransaction();
-      return savedOrder; // Ahora devolvemos el objeto limpio sin ciclos
+      return savedOrder;
 
     } catch (err) {
       await queryRunner.rollbackTransaction();
@@ -75,23 +77,22 @@ export class OrdersService {
     }
   }
 
-  // --- Paginación y Ordenamiento (Ya implementado) ---
-async findAll(
+  async findAll(
     status?: string, 
     page: number = 1, 
     limit: number = 20,
     sortBy: string = 'createdAt', 
     sortOrder: 'ASC' | 'DESC' = 'DESC',
-    paymentMethod?: string // <--- NUEVO PARÁMETRO
+    paymentMethod?: string
   ) {
-    const whereClause: any = {}; // Usamos any para construir dinámicamente
-    
+    const whereClause: any = {};
     if (status) whereClause.status = status;
-    if (paymentMethod) whereClause.paymentMethod = paymentMethod; // <--- FILTRO MÁGICO
+    if (paymentMethod) whereClause.paymentMethod = paymentMethod;
 
     const [data, total] = await this.orderRepository.findAndCount({
       where: whereClause,
-      relations: ['items', 'items.product', 'user'],
+      // 👇 Ya traíamos la relación 'user', así que el historial lo mostrará automático
+      relations: ['items', 'items.product', 'user'], 
       order: { [sortBy]: sortOrder },
       take: limit,
       skip: (page - 1) * limit
@@ -110,7 +111,7 @@ async findAll(
   async findOne(id: string) {
     return this.orderRepository.findOne({ 
       where: { id },
-      relations: ['items', 'items.product'] 
+      relations: ['items', 'items.product', 'user'] 
     });
   }
 
@@ -123,7 +124,6 @@ async findAll(
     if (!order) throw new Error('Orden no encontrada');
     if (order.status === 'cancelled') throw new Error('La orden ya está cancelada');
 
-    // Devolver Stock
     for (const item of order.items) {
       if (item.product) {
         item.product.stock += item.quantity;

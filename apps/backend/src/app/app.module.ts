@@ -2,39 +2,39 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ServeStaticModule } from '@nestjs/serve-static';
-// Importa tus módulos (Nx suele crear alias, pero usaremos rutas relativas por seguridad ahora)
+import { join } from 'path';
+
+// Módulos
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { ProductsModule } from './modules/products/products.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { FinancesModule } from './modules/finances/finances.module';
+import { CategoriesModule } from './modules/categories/categories.module'; // 👈 1. IMPORTAR ESTO
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { join } from 'path';
+
+// Entidades
 import { Expense } from './modules/expenses/entities/expense.entity';
 import { User } from './modules/users/entities/user.entity';
 import { Product } from './modules/products/entities/product.entity';
 import { Order } from './modules/orders/entities/order.entity';
 import { OrderItem } from './modules/orders/entities/order-item.entity';
+import { Category } from './modules/categories/entities/category.entity'; // 👈 2. IMPORTAR ESTO
 
 @Module({
   imports: [
-    // 1. Cargar variables de entorno (.env)
-    ConfigModule.forRoot({
-      isGlobal: true,
-    }),
+    ConfigModule.forRoot({ isGlobal: true }),
 
-    // 2. Conexión Global a Neon (PostgreSQL)
     TypeOrmModule.forRoot({
       type: 'postgres',
-      url: process.env.DATABASE_URL, // Lee la URL de tu .env
-      entities: [User, Product, Order, OrderItem, Expense], 
-      autoLoadEntities: true, // Carga las entidades (User, Product, etc) automáticamente
-      synchronize: true, // ⚠️ Crea las tablas solas (Genial para desarrollo)
-      ssl: {
-        rejectUnauthorized: false,
-      },
+      url: process.env.DATABASE_URL,
+      // 👇 3. AGREGAR Category AQUI
+      entities: [User, Product, Order, OrderItem, Expense, Category], 
+      autoLoadEntities: true,
+      synchronize: true,
+      ssl: { rejectUnauthorized: false },
     }),
 
     ServeStaticModule.forRoot({
@@ -42,12 +42,12 @@ import { OrderItem } from './modules/orders/entities/order-item.entity';
       serveRoot: '/uploads',
     }),
 
-    // 3. Módulos de tu ERP
     AuthModule,
     UsersModule,
     ProductsModule,
     OrdersModule,
     FinancesModule,
+    CategoriesModule, // 👈 4. AGREGAR EL MÓDULO AQUI
   ],
   controllers: [AppController],
   providers: [AppService],

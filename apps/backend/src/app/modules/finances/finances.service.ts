@@ -19,8 +19,8 @@ export class FinancesService {
   // ===========================================================================
   // 1. RESUMEN FINANCIERO (Ventas + Gastos)
   // ===========================================================================
-  async getSummary(startDate?: Date, endDate?: Date) {
-    // A. LÓGICA DE VENTAS (INGRESOS)
+async getSummary(startDate?: Date, endDate?: Date) {
+    // A. LÓGICA DE VENTAS (INGRESOS TOTALES)
     const query = this.orderRepository.createQueryBuilder('order')
       .where('order.status = :status', { status: 'completed' });
 
@@ -33,31 +33,35 @@ export class FinancesService {
     const revenue = Number(totalRevenueQuery?.sum || 0);
     const avgTicket = totalOrders > 0 ? revenue / totalOrders : 0;
 
-    // Ventas de HOY
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // 👇 CORRECCIÓN AQUÍ: Ventas de HOY
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0); // Inicio del día (00:00:00)
+    
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999); // Final del día (23:59:59) <--- ESTO SOLUCIONA EL PROBLEMA
+
     const todayOrders = await this.orderRepository.count({
-      where: { status: 'completed', createdAt: Between(today, new Date()) }
+      where: { 
+        status: 'completed', 
+        createdAt: Between(todayStart, todayEnd) 
+      }
     });
 
-    // B. LÓGICA DE GASTOS (EGRESOS)
+    // B. LÓGICA DE GASTOS
     const expenseQuery = this.expenseRepository.createQueryBuilder('expense');
-    
     if (startDate && endDate) {
       expenseQuery.where('expense.date BETWEEN :startDate AND :endDate', { startDate, endDate });
     }
-
     const totalExpensesQuery = await expenseQuery.select('SUM(expense.amount)', 'sum').getRawOne();
     const totalExpenses = Number(totalExpensesQuery?.sum || 0);
 
-    // C. RETORNO COMBINADO
     return {
       totalRevenue: revenue,
       totalOrders: totalOrders,
       todayOrders: todayOrders,
       avgTicket: avgTicket,
-      totalExpenses: totalExpenses,       // 👈 Total Gastos
-      netProfit: revenue - totalExpenses, // 👈 Utilidad (Ganancia)
+      totalExpenses: totalExpenses,
+      netProfit: revenue - totalExpenses,
       lastUpdated: new Date()
     };
   }
