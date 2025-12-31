@@ -35,7 +35,10 @@ export default function SalesHistory() {
       const response = await axios.get('http://localhost:3000/api/orders', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setOrders(response.data);
+      // Ordenamos por fecha (la más nueva primero)
+      setOrders(response.data.sort((a: Order, b: Order) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      ));
     } catch (error) {
       console.error("Error cargando historial", error);
     } finally {
@@ -87,14 +90,17 @@ export default function SalesHistory() {
                         </span>
                       </div>
                     </td>
+                    
+                    {/* 👇 AQUÍ ESTABA EL ERROR: AHORA SUMAMOS CANTIDADES */}
                     <td className="px-6 py-4">
-                      <div className="text-xs text-slate-500">
-                        {order.items.length} productos vendidos
+                      <div className="text-xs text-slate-500 font-medium">
+                        {order.items.reduce((acc, item) => acc + item.quantity, 0)} productos vendidos
                       </div>
                       <div className="text-xs text-slate-400 truncate max-w-[200px]">
-                        {order.items.map(i => i.product?.name).join(', ')}
+                        {order.items.map(i => `${i.quantity}x ${i.product?.name}`).join(', ')}
                       </div>
                     </td>
+
                     <td className="px-6 py-4 text-center">
                       <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full text-xs font-medium capitalize">
                         {order.status === 'completed' ? 'Completada' : order.status}

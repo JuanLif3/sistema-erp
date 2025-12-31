@@ -1,8 +1,7 @@
-import { Controller, Get, UseGuards, Query } from '@nestjs/common';
-import { FinancesService } from './finances.service';
+import { Controller, Get, UseGuards, Query, Res } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-
-// ... otros imports
+import { FinancesService } from './finances.service';
+import { Response } from 'express';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('finances')
@@ -14,11 +13,39 @@ export class FinancesController {
     return this.financesService.getSummary();
   }
 
-  // 👇 NUEVA RUTA: /api/finances/history?days=30
+  // 👇 ESTE ERA EL QUE FALLABA
   @Get('history')
   getHistory(@Query('days') days: string) {
-    // Si no envían nada, por defecto mostramos 7 días
     const daysCount = days ? parseInt(days) : 7;
-    return this.financesService.getSalesHistory(daysCount);
+    
+    // Convertimos "días" a un rango de fechas real
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - daysCount);
+
+    // Ahora sí llamamos al servicio con Fechas, como le gusta
+    return this.financesService.getSalesHistory(startDate, endDate);
+  }
+
+  @Get('report')
+  async getReport(
+    @Res() res: Response, 
+    @Query('startDate') startDate?: string, 
+    @Query('endDate') endDate?: string
+  ) {
+    const start = startDate ? new Date(startDate) : undefined;
+    const end = endDate ? new Date(endDate) : undefined;
+
+    if (end) end.setHours(23, 59, 59, 999);
+
+    const buffer = await this.financesService.generateReport(start, end);
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename=Reporte_Financiero.pdf`,
+      'Content-Length': buffer.length,
+    });
+
+    res.end(buffer);
   }
 }

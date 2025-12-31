@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import { ShoppingCart, Plus, Trash2, CheckCircle, PackageOpen } from 'lucide-react';
+import { ShoppingCart, Trash2, CheckCircle, PackageOpen, Search, X } from 'lucide-react';
 
 interface Product {
   id: string;
@@ -8,6 +8,7 @@ interface Product {
   sku: string;
   price: number;
   stock: number;
+  image?: string; // Soportamos imagen
 }
 
 interface CartItem extends Product {
@@ -19,8 +20,10 @@ export default function POS() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  
+  // 👇 1. ESTADO PARA BÚSQUEDA
+  const [searchTerm, setSearchTerm] = useState('');
 
-  // Cargar productos al entrar
   useEffect(() => {
     fetchProducts();
   }, []);
@@ -31,23 +34,26 @@ export default function POS() {
       const response = await axios.get('http://localhost:3000/api/products', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      // Solo mostramos productos con stock > 0
+      // Solo productos con stock
       setProducts(response.data.filter((p: Product) => p.stock > 0));
     } catch (error) {
       console.error("Error cargando inventario", error);
     }
   };
 
+  // 👇 2. FILTRADO INTELIGENTE
+  const filteredProducts = products.filter(product => 
+    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    product.sku.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   const addToCart = (product: Product) => {
     const existing = cart.find((item) => item.id === product.id);
-    
     if (existing) {
-      // Si ya está, aumentamos cantidad (si hay stock)
       if (existing.quantity < product.stock) {
         setCart(cart.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item));
       }
     } else {
-      // Si no está, lo agregamos con cantidad 1
       setCart([...cart, { ...product, quantity: 1 }]);
     }
   };
@@ -64,8 +70,6 @@ export default function POS() {
 
     try {
       const token = localStorage.getItem('erp_token');
-      
-      // Formato que pide el Backend
       const payload = {
         items: cart.map(item => ({
           productId: item.id,
@@ -77,11 +81,10 @@ export default function POS() {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      // Éxito visual
       setSuccess(true);
       setCart([]);
-      fetchProducts(); // Recargar stock actualizado
-      setTimeout(() => setSuccess(false), 3000); // Ocultar mensaje a los 3 seg
+      fetchProducts(); 
+      setTimeout(() => setSuccess(false), 3000);
 
     } catch (error) {
       console.error("Error procesando venta", error);
@@ -94,45 +97,80 @@ export default function POS() {
   return (
     <div className="flex flex-col lg:flex-row h-[calc(100vh-8rem)] gap-6 animate-fade-in">
       
-      {/* 📦 IZQUIERDA: Catálogo de Productos */}
+      {/* 📦 IZQUIERDA: Catálogo */}
       <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
-        <div className="p-4 border-b border-slate-100 bg-slate-50">
+        
+        {/* Header con Buscador */}
+        <div className="p-4 border-b border-slate-100 bg-slate-50 flex flex-col sm:flex-row justify-between items-center gap-4">
           <h2 className="font-bold text-slate-700 flex items-center gap-2">
             <PackageOpen size={20} />
-            Catálogo Disponible
+            Catálogo
           </h2>
+          
+          {/* 👇 3. INPUT DE BÚSQUEDA */}
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
+            <input 
+              type="text"
+              placeholder="Buscar producto..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-8 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all"
+            />
+            {searchTerm && (
+              <button 
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2 top-2.5 text-slate-400 hover:text-slate-600"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {products.map(product => (
+        {/* Grid de Productos */}
+        <div className="flex-1 overflow-y-auto p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 content-start">
+          {filteredProducts.map(product => (
             <button
               key={product.id}
               onClick={() => addToCart(product)}
-              className="group text-left p-4 rounded-xl border border-slate-200 hover:border-brand-500 hover:shadow-md transition-all bg-white flex flex-col justify-between"
+              className="group text-left p-3 rounded-xl border border-slate-200 hover:border-brand-500 hover:shadow-md transition-all bg-white flex gap-3 h-24"
             >
-              <div>
-                <div className="font-bold text-slate-800 group-hover:text-brand-600 transition-colors">
-                  {product.name}
-                </div>
-                <div className="text-xs text-slate-400 mb-2">{product.sku}</div>
+              {/* Miniatura de imagen en el POS */}
+              <div className="h-full w-20 bg-slate-100 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden border border-slate-100">
+                {product.image ? (
+                   <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
+                ) : (
+                   <PackageOpen className="text-slate-300" size={24} />
+                )}
               </div>
-              <div className="flex justify-between items-end mt-2">
-                <span className="font-bold text-lg text-slate-900">${product.price.toLocaleString()}</span>
-                <span className="text-xs font-medium px-2 py-1 bg-slate-100 rounded-md text-slate-600">
-                  Stock: {product.stock}
-                </span>
+              
+              <div className="flex flex-col justify-between flex-1 min-w-0">
+                <div>
+                  <div className="font-bold text-slate-800 text-sm truncate group-hover:text-brand-600 transition-colors">
+                    {product.name}
+                  </div>
+                  <div className="text-xs text-slate-400 font-mono truncate">{product.sku}</div>
+                </div>
+                <div className="flex justify-between items-end">
+                  <span className="font-bold text-slate-900">${product.price.toLocaleString()}</span>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 bg-slate-100 rounded text-slate-500">
+                    Stock: {product.stock}
+                  </span>
+                </div>
               </div>
             </button>
           ))}
-          {products.length === 0 && (
+          
+          {filteredProducts.length === 0 && (
             <div className="col-span-full text-center py-10 text-slate-400">
-              No hay productos con stock disponible.
+              {searchTerm ? "No se encontraron productos." : "No hay stock disponible."}
             </div>
           )}
         </div>
       </div>
 
-      {/* 🛒 DERECHA: Carrito de Compras */}
+      {/* 🛒 DERECHA: Carrito (Sin cambios mayores) */}
       <div className="w-full lg:w-96 bg-white rounded-xl shadow-xl border border-slate-200 flex flex-col">
         <div className="p-4 bg-brand-600 text-white rounded-t-xl flex justify-between items-center">
           <h2 className="font-bold flex items-center gap-2">
@@ -144,7 +182,6 @@ export default function POS() {
           </span>
         </div>
 
-        {/* Lista del Carrito */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
           {cart.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-slate-400 opacity-60">
@@ -176,7 +213,6 @@ export default function POS() {
           )}
         </div>
 
-        {/* Resumen y Botón Pagar */}
         <div className="p-6 bg-white border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
           <div className="flex justify-between items-end mb-6">
             <span className="text-slate-500 font-medium">Total a Pagar</span>
