@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards, Query, Res, Post, Body, Delete, Param } from '@nestjs/common';
+import { Controller, Get, UseGuards, Query, Res, Post, Body, Delete, Param, Patch } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FinancesService } from './finances.service';
 import { Response } from 'express';
@@ -13,10 +13,31 @@ export class FinancesController {
     return this.financesService.createExpense(body);
   }
 
-  @Get('expenses')
-  getExpenses() {
-    return this.financesService.getExpenses();
+@Get('expenses')
+  getExpenses(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '20',
+    @Query('category') category?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.financesService.getExpenses(
+      parseInt(page), 
+      parseInt(limit), 
+      category, 
+      startDate ? new Date(startDate) : undefined, 
+      endDate ? new Date(endDate) : undefined,
+      search
+    );
   }
+
+  // 👇 NUEVO: Endpoint Editar
+  @Patch('expenses/:id')
+  updateExpense(@Param('id') id: string, @Body() body: any) {
+    return this.financesService.updateExpense(id, body);
+  }
+  
 
   @Delete('expenses/:id')
   deleteExpense(@Param('id') id: string) {

@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, IsArray, IsOptional } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsArray, IsOptional, IsBoolean } from 'class-validator';
 
 export class CreateUserDto {
     @IsEmail({}, { message: 'El correo no es valido' })
@@ -14,4 +14,9 @@ export class CreateUserDto {
     @IsOptional()
     @IsArray()
     roles?: string[];
+
+    // 👇 AGREGAR ESTO
+    @IsOptional()
+    @IsBoolean()
+    isActive?: boolean;
 }

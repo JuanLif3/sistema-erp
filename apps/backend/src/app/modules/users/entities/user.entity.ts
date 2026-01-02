@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import { Order } from '../../orders/entities/order.entity';
 
 @Entity('users')
 export class User {
@@ -9,11 +10,10 @@ export class User {
     email: string;
 
     @Column('text', { select: false })
-    // select: false es VITAL. Evita que la contraseña viaje 
-    // al frontend cuando se pida la lista de usuarios.
     password: string;
 
-    @Column('text')
+    // 👇 CAMBIO AQUÍ: Agregamos un valor por defecto
+    @Column('text', { default: 'Usuario Sistema' }) 
     fullName: string;
 
     @Column('text', { array: true, default: ['employee'] })
@@ -27,5 +27,7 @@ export class User {
 
     @UpdateDateColumn()
     updatedAt: Date;
-  orders: any;
+
+    @OneToMany(() => Order, (order) => order.user)
+    orders: Order[];
 }

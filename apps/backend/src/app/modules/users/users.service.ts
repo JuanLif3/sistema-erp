@@ -1,76 +1,69 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
-  constructor(
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
-  ) {}
+  constructor(@InjectRepository(User) private userRepository: Repository<User>) {}
 
-  async create(createUserDto: CreateUserDto) {
-    try {
-      const { password, ...userData } = createUserDto;
-      
-      // Encriptar contraseña antes de guardar
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
+  // 1. CREAR USUARIO (CRUD)
+  async create(createUserDto: any) {
+    const existing = await this.userRepository.findOneBy({ email: createUserDto.email });
+    if (existing) throw new BadRequestException('El correo ya está registrado');
 
-      const user = this.userRepository.create({
-        ...userData,
-        password: hashedPassword,
-      });
-
-      return await this.userRepository.save(user);
-    } catch (error) {
-      if (error.code === '23505') {
-        throw new Error('El correo electrónico ya está registrado.');
-      }
-      throw error;
-    }
+    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+    const user = this.userRepository.create({ ...createUserDto, password: hashedPassword });
+    return this.userRepository.save(user);
   }
 
+  // 2. LISTAR TODOS (CRUD)
   findAll() {
-    return this.userRepository.find({
-      order: { createdAt: 'DESC' }
-    });
+    return this.userRepository.find({ order: { createdAt: 'DESC' } });
   }
 
+  // 3. BUSCAR POR ID (Para CRUD y Relaciones)
   async findOne(id: string) {
     const user = await this.userRepository.findOneBy({ id });
-    if (!user) throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+    if (!user) throw new NotFoundException('Usuario no encontrado');
     return user;
   }
 
-  // 👇 MÉTODO CRÍTICO CORREGIDO
+  // 👇 4. BUSCAR POR EMAIL (NECESARIO PARA AUTH/LOGIN)
+  // Este es el método que te faltaba y causaba el error
   async findOneByEmail(email: string) {
     return this.userRepository.createQueryBuilder('user')
       .where('user.email = :email', { email })
-      .addSelect('user.password') // <--- ESTO ARREGLA EL LOGIN (Trae el pass oculto)
+      .addSelect('user.password') // Importante: Traer password para validar
       .getOne();
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto) {
-    const user = await this.findOne(id);
-    
-    // Si viene password, la encriptamos de nuevo
+  // 5. ACTUALIZAR (CRUD)
+  async update(id: string, updateUserDto: any) {
+    const user = await this.userRepository.findOneBy({ id });
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+
+    // Si viene password, la hasheamos
     if (updateUserDto.password) {
-      const salt = await bcrypt.genSalt(10);
-      updateUserDto.password = await bcrypt.hash(updateUserDto.password, salt);
+      updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
+    } else {
+      delete updateUserDto.password; // No sobreescribir con vacío
     }
 
-    this.userRepository.merge(user, updateUserDto);
+    Object.assign(user, updateUserDto);
     return this.userRepository.save(user);
   }
 
-  async remove(id: string) {
-    const user = await this.findOne(id);
-    user.isActive = false; // Soft Delete
-    return this.userRepository.save(user);
+async remove(id: string) {
+    try {
+      return await this.userRepository.delete(id);
+    } catch (error) {
+      if (error.code === '23503') {
+        // Si no se puede borrar, lo desactivamos
+        return this.update(id, { isActive: false } as any);
+      }
+      throw error;
+    }
   }
 }

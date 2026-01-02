@@ -1,9 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, Between } from 'typeorm';
+import { Repository, DataSource, Between, Like } from 'typeorm';
 import { Order } from '../orders/entities/order.entity';
 import { OrderItem } from '../orders/entities/order-item.entity';
-import { Expense } from '../expenses/entities/expense.entity'; // Asegúrate de tener esta entidad creada
+import { Expense } from '../expenses/entities/expense.entity';
 import PDFDocument from 'pdfkit';
 
 @Injectable()
@@ -12,15 +12,15 @@ export class FinancesService {
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
     @InjectRepository(Expense)
-    private readonly expenseRepository: Repository<Expense>, // 👈 Inyección de Gastos
+    private readonly expenseRepository: Repository<Expense>,
     private dataSource: DataSource
   ) {}
 
   // ===========================================================================
-  // 1. RESUMEN FINANCIERO (Ventas + Gastos)
+  // 1. RESUMEN FINANCIERO (Ventas, Gastos, Solicitudes)
   // ===========================================================================
-async getSummary(startDate?: Date, endDate?: Date) {
-    // A. LÓGICA DE VENTAS (INGRESOS TOTALES)
+  async getSummary(startDate?: Date, endDate?: Date) {
+    // A. LÓGICA DE VENTAS (INGRESOS)
     const query = this.orderRepository.createQueryBuilder('order')
       .where('order.status = :status', { status: 'completed' });
 
@@ -33,12 +33,12 @@ async getSummary(startDate?: Date, endDate?: Date) {
     const revenue = Number(totalRevenueQuery?.sum || 0);
     const avgTicket = totalOrders > 0 ? revenue / totalOrders : 0;
 
-    // 👇 CORRECCIÓN AQUÍ: Ventas de HOY
+    // Ventas de HOY (Rango completo 00:00 a 23:59)
     const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0); // Inicio del día (00:00:00)
+    todayStart.setHours(0, 0, 0, 0);
     
     const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999); // Final del día (23:59:59) <--- ESTO SOLUCIONA EL PROBLEMA
+    todayEnd.setHours(23, 59, 59, 999);
 
     const todayOrders = await this.orderRepository.count({
       where: { 
@@ -47,20 +47,24 @@ async getSummary(startDate?: Date, endDate?: Date) {
       }
     });
 
-    // B. LÓGICA DE GASTOS
+    // B. LÓGICA DE GASTOS (EGRESOS)
     const expenseQuery = this.expenseRepository.createQueryBuilder('expense');
+    
     if (startDate && endDate) {
       expenseQuery.where('expense.date BETWEEN :startDate AND :endDate', { startDate, endDate });
     }
+
     const totalExpensesQuery = await expenseQuery.select('SUM(expense.amount)', 'sum').getRawOne();
     const totalExpenses = Number(totalExpensesQuery?.sum || 0);
 
+    // C. SOLICITUDES DE CANCELACIÓN PENDIENTES
     const pendingRequests = await this.orderRepository.find({
       where: { cancellationStatus: 'pending' },
-      relations: ['user', 'items', 'items.product'], // Traemos datos útiles
+      relations: ['user', 'items', 'items.product'],
       order: { createdAt: 'DESC' }
     });
 
+    // RETORNO COMBINADO
     return {
       totalRevenue: revenue,
       totalOrders: totalOrders,
@@ -73,18 +77,50 @@ async getSummary(startDate?: Date, endDate?: Date) {
     };
   }
 
-  
+  // ===========================================================================
+  // 2. GESTIÓN DE GASTOS (CRUD + Filtros + Paginación)
+  // ===========================================================================
+  async getExpenses(
+    page: number = 1, 
+    limit: number = 20, 
+    category?: string, 
+    startDate?: Date, 
+    endDate?: Date,
+    search?: string
+  ) {
+    const where: any = {};
 
-  // ===========================================================================
-  // 2. GESTIÓN DE GASTOS (CRUD)
-  // ===========================================================================
+    if (category && category !== 'all') where.category = category;
+    if (startDate && endDate) where.date = Between(startDate, endDate);
+    if (search) where.description = Like(`%${search}%`);
+
+    const [data, total] = await this.expenseRepository.findAndCount({
+      where,
+      order: { date: 'DESC' },
+      take: limit,
+      skip: (page - 1) * limit,
+    });
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        lastPage: Math.ceil(total / limit),
+      }
+    };
+  }
+
   async createExpense(data: { description: string, amount: number, category: string }) {
     const expense = this.expenseRepository.create(data);
     return this.expenseRepository.save(expense);
   }
 
-  async getExpenses() {
-    return this.expenseRepository.find({ order: { date: 'DESC' } });
+  async updateExpense(id: string, data: Partial<Expense>) {
+    const expense = await this.expenseRepository.findOneBy({ id });
+    if (!expense) throw new NotFoundException('Gasto no encontrado');
+    Object.assign(expense, data);
+    return this.expenseRepository.save(expense);
   }
 
   async deleteExpense(id: string) {
@@ -92,10 +128,9 @@ async getSummary(startDate?: Date, endDate?: Date) {
   }
 
   // ===========================================================================
-  // 3. REPORTES Y GRÁFICOS
+  // 3. REPORTES Y GRÁFICOS (Helpers)
   // ===========================================================================
 
-  // Historial de Ventas (Gráfico)
   async getSalesHistory(startDate: Date, endDate: Date) {
     const sales = await this.orderRepository
       .createQueryBuilder('order')
@@ -110,7 +145,6 @@ async getSummary(startDate?: Date, endDate?: Date) {
     return sales.map(item => ({ date: item.date, total: Number(item.total) }));
   }
 
-  // Top Productos
   async getTopProducts(startDate?: Date, endDate?: Date) {
     const query = this.dataSource.getRepository(OrderItem)
       .createQueryBuilder('item')
@@ -135,7 +169,6 @@ async getSummary(startDate?: Date, endDate?: Date) {
       .getRawMany();
   }
 
-  // Ventas por Categoría (Donas)
   async getSalesByCategory() {
     return this.dataSource.getRepository(OrderItem)
       .createQueryBuilder('item')
@@ -149,7 +182,7 @@ async getSummary(startDate?: Date, endDate?: Date) {
       .getRawMany();
   }
 
-  // Todas las ventas para el reporte
+  // Helper para el reporte PDF
   async getAllOrdersForReport(startDate: Date, endDate: Date) {
     return this.orderRepository.find({
       where: {
@@ -161,7 +194,7 @@ async getSummary(startDate?: Date, endDate?: Date) {
     });
   }
 
-  // Simulador
+  // Simulador (Opcional)
   async simulateSales() {
     const orders: Order[] = [];
     const today = new Date();
@@ -225,16 +258,13 @@ async getSummary(startDate?: Date, endDate?: Date) {
       doc.fillColor(primaryColor).fontSize(16).font('Helvetica-Bold').text(value, x + 15, y + 30);
     };
 
-    // Usamos los datos calculados en getSummary
     drawCard(50, 'Ventas Totales', `$${summary.totalRevenue.toLocaleString()}`);
     drawCard(220, 'Pedidos Totales', summary.totalOrders.toString());
     drawCard(390, 'Ticket Promedio', `$${Math.round(summary.avgTicket).toLocaleString()}`);
     
-    // Segunda fila de KPIs (Gastos y Utilidad)
     y += 70;
     drawCard(50, 'Total Gastos', `$${summary.totalExpenses.toLocaleString()}`);
     
-    // Color dinámico para la utilidad (Rojo si es negativa)
     const profitColor = summary.netProfit >= 0 ? primaryColor : '#ef4444';
     doc.roundedRect(220, y, 155, 60, 5).fillAndStroke('#f8fafc', '#e2e8f0');
     doc.fillColor(secondaryColor).fontSize(9).font('Helvetica').text('UTILIDAD NETA', 235, y + 15);
@@ -263,7 +293,7 @@ async getSummary(startDate?: Date, endDate?: Date) {
 
     y += 40;
 
-    // 4. LISTADO DE TODOS LOS PEDIDOS
+    // 4. LISTADO DE PEDIDOS
     doc.fillColor(primaryColor).fontSize(14).font('Helvetica-Bold').text(`Detalle de Pedidos (${allOrders.length})`, 50, y);
     y += 25;
 
@@ -284,7 +314,7 @@ async getSummary(startDate?: Date, endDate?: Date) {
     allOrders.forEach((order, i) => {
       if (y > 720) {
         doc.addPage();
-        y = 50;
+        y = 50; // 👈 ¡AQUÍ ESTABA EL ERROR! (Ya corregido)
         drawOrderHeader(y);
         y += 20;
       }

@@ -3,6 +3,7 @@ import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { LoginDto } from './dto/login.dto';
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -14,24 +15,31 @@ export class AuthService {
   async validateUser(loginDto: LoginDto): Promise<any> {
     const { email, password } = loginDto;
 
-    // Buscamos al usuario por email (incluyendo su password encriptada)
+    // Buscamos al usuario por email
     const user = await this.usersService.findOneByEmail(email);
 
     // Si el usuario existe y la contraseña coincide...
     if (user && bcrypt.compareSync(password, user.password)) {
-      const { password, ...result } = user; // Quitamos el password del objeto
-      return result; // Devolvemos el usuario limpio
+      
+      // 👇 BLOQUE DE SEGURIDAD NUEVO
+      if (!user.isActive) {
+        // Si está inactivo, le prohibimos la entrada aunque la contraseña esté bien
+        throw new UnauthorizedException('Tu cuenta ha sido desactivada. Contacte al administrador.');
+      }
+
+      const { password, ...result } = user; // Quitamos el password
+      return result; // Retornamos usuario limpio
     }
-    return null;
+    
+    return null; // Credenciales incorrectas
   }
 
-      // 2. Generar el token (login)
-    async login(user: any) {
-    // Incluimos los roles en el payload del token y en la respuesta
+  // 2. Generar el token (login)
+  async login(user: any) {
     const payload = { 
       username: user.email, 
       sub: user.id, 
-      roles: user.roles // <--- ESTO ES CRUCIAL
+      roles: user.roles 
     };
 
     return {
@@ -40,7 +48,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         fullName: user.fullName,
-        roles: user.roles // <--- También lo devolvemos en plano para el frontend
+        roles: user.roles
       }
     };
   }
