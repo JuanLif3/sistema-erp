@@ -40,12 +40,12 @@ export class FinancesService {
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
 
-    const todayOrders = await this.orderRepository.count({
-      where: { 
-        status: 'completed', 
-        createdAt: Between(todayStart, todayEnd) 
-      }
-    });
+    // Esto evita problemas de zona horaria entre Node y Postgres
+    const todayOrders = await this.orderRepository
+      .createQueryBuilder('order')
+      .where("order.status = 'completed'")
+      .andWhere("DATE(order.createdAt) = CURRENT_DATE") 
+      .getCount();
 
     // B. LÓGICA DE GASTOS (EGRESOS)
     const expenseQuery = this.expenseRepository.createQueryBuilder('expense');

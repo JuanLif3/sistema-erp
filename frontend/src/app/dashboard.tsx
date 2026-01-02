@@ -185,7 +185,6 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                          <span className="text-slate-400">-</span>
                          <input type="date" value={dateRange.end} onChange={(e) => setDateRange({...dateRange, end: e.target.value})} className="bg-transparent text-sm text-slate-600 outline-none px-2" />
                        </div>
-                       <button onClick={handleSimulate} className="bg-purple-100 text-purple-700 hover:bg-purple-200 px-3 py-2 rounded-lg text-xs font-bold flex gap-2 items-center"><Wand2 size={14}/> Simular</button>
                        <button onClick={handleDownloadReport} className="bg-slate-900 text-white hover:bg-black px-4 py-2 rounded-lg text-sm font-bold shadow-md flex gap-2 items-center">📄 PDF</button>
                      </div>
                    )}

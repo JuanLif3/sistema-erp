@@ -34,6 +34,7 @@ import { Category } from './modules/categories/entities/category.entity'; // ðŸ‘
       entities: [User, Product, Order, OrderItem, Expense, Category], 
       autoLoadEntities: true,
       synchronize: true,
+      // dropSchema: true,
       ssl: { rejectUnauthorized: false },
     }),
 
