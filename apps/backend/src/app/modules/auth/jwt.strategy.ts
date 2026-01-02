@@ -21,7 +21,8 @@ async validate(payload: any) {
     return { 
         userId: payload.sub, 
         username: payload.username, 
-        roles: payload.roles // 👈 ¡ASEGÚRATE QUE ESTO ESTÉ AQUÍ!
+        roles: payload.roles, // 👈 ¡ASEGÚRATE QUE ESTO ESTÉ AQUÍ!
+        companyId: payload.companyId
     };
   }
 }

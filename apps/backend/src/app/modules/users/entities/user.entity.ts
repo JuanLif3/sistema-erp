@@ -1,5 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
 import { Order } from '../../orders/entities/order.entity';
+import { Company } from '../../companies/entities/company.entity';
 
 @Entity('users')
 export class User {
@@ -30,4 +31,11 @@ export class User {
 
     @OneToMany(() => Order, (order) => order.user)
     orders: Order[];
+
+    @ManyToOne(() => Company, (company) => company.users)
+    @JoinColumn({ name: 'companyId' })
+    company: Company;
+
+    @Column()
+    companyId: string; // Para acceso rápido sin join
 }

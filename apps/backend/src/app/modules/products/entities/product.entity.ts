@@ -1,11 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Unique } from 'typeorm';
 
 @Entity('products')
+@Unique(['sku', 'companyId'])
 export class Product {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column('text', { unique: true })
+  @Column('text')
   sku: string; // Código único (ej: REF-001)
 
   @Column('text')
@@ -34,4 +35,7 @@ export class Product {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @Column('uuid')
+  companyId: string; // 👈 LA LLAVE MAESTRA
 }
