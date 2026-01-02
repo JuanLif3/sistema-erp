@@ -18,13 +18,15 @@ export function App() {
     }
   }, []);
 
-  const handleLogin = async (e: React.FormEvent) => {
+const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      const response = await axios.post('http://localhost:3000/api/auth/login', {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+
+      const response = await axios.post(`${API_URL}/api/auth/login`, {
         email,
         password
       });

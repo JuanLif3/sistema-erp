@@ -10,17 +10,17 @@ export default function StatsCards() {
     lastUpdated: new Date()
   });
 
-  useEffect(() => {
+useEffect(() => {
     const fetchStats = async () => {
       try {
         const token = localStorage.getItem('erp_token');
-        const response = await axios.get('http://localhost:3000/api/finances/summary', {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+
+        const response = await axios.get(`${API_URL}/api/finances/summary`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setStats(response.data);
-      } catch (error) {
-        console.error("Error cargando estadísticas", error);
-      }
+      } catch (error) { console.error("Error cargando estadísticas", error); }
     };
     fetchStats();
   }, []);

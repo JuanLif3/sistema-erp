@@ -53,7 +53,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const handleDownloadReport = async () => {
     try {
       const token = localStorage.getItem('erp_token');
-      const response = await axios.get(`http://localhost:3000/api/finances/report?startDate=${dateRange.start}&endDate=${dateRange.end}`, {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+      const response = await axios.get(`${API_URL}/api/finances/report?startDate=${dateRange.start}&endDate=${dateRange.end}`, {
         headers: { Authorization: `Bearer ${token}` },
         responseType: 'blob',
       });
@@ -70,9 +71,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const handleSimulate = async () => {
     try {
       const token = localStorage.getItem('erp_token');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
       // eslint-disable-next-line no-restricted-globals
       if(confirm("¿Generar datos de prueba?")) {
-        await axios.get('http://localhost:3000/api/finances/simulate', { headers: { Authorization: `Bearer ${token}` } });
+        await axios.get(`${API_URL}/api/finances/simulate`, { headers: { Authorization: `Bearer ${token}` } });
         window.location.reload();
       }
     } catch (error) { console.error(error); }

@@ -11,11 +11,15 @@ interface Product {
 export default function LowStockWidget({ onNavigate }: { onNavigate: () => void }) {
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
 
-  useEffect(() => {
+useEffect(() => {
     const fetchProducts = async () => {
       try {
         const token = localStorage.getItem('erp_token');
-        const response = await axios.get('http://localhost:3000/api/products', {
+        // 👇 AGREGAR ESTA LÍNEA
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        
+        // 👇 USAR API_URL
+        const response = await axios.get(`${API_URL}/api/products`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         // Filtramos en el front por simplicidad (stock <= 5)

@@ -16,13 +16,18 @@ export class CreateProductDto {
   price: number;
 
   @IsNumber()
-  @Min(0) // El stock puede ser 0, pero no negativo
+  @Min(0) 
   stock: number;
 
   @IsString()
   @IsOptional()
-  image?: string; // <--- Agregar esto
+  image?: string; 
 
   @IsString()
   category: string;
+
+  // 👇 AGREGA ESTO AL FINAL:
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }

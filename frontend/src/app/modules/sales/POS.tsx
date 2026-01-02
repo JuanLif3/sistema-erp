@@ -44,10 +44,11 @@ export default function POS() {
     }
   }, [products, isPaymentModalOpen, cart, showMobileCart]);
 
-  const fetchProducts = async () => {
+const fetchProducts = async () => {
     try {
       const token = localStorage.getItem('erp_token');
-      const response = await axios.get('http://localhost:3000/api/products?active=true', {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+      const response = await axios.get(`${API_URL}/api/products?active=true`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setProducts(response.data.filter((p: Product) => p.stock > 0));
@@ -90,7 +91,8 @@ export default function POS() {
     setLoading(true);
     try {
       const token = localStorage.getItem('erp_token');
-      await axios.post('http://localhost:3000/api/orders', {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+      await axios.post(`${API_URL}/api/orders`, {
         items: cart.map(item => ({ productId: item.id, quantity: item.quantity })),
         paymentMethod: paymentMethod
       }, { headers: { Authorization: `Bearer ${token}` } });

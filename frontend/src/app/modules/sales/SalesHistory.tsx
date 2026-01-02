@@ -67,6 +67,7 @@ export default function SalesHistory() {
     setLoading(true);
     try {
       const token = localStorage.getItem('erp_token');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       
       let sortBy = 'createdAt';
       let order = 'DESC';
@@ -74,15 +75,9 @@ export default function SalesHistory() {
       if (sortOption === 'total-desc') { sortBy = 'total'; order = 'DESC'; }
       if (sortOption === 'total-asc') { sortBy = 'total'; order = 'ASC'; }
 
-      const response = await axios.get(`http://localhost:3000/api/orders`, {
+      const response = await axios.get(`${API_URL}/api/orders`, {
         headers: { Authorization: `Bearer ${token}` },
-        params: {
-          status: activeTab,
-          page: page,
-          sortBy: sortBy,
-          order: order,
-          paymentMethod: paymentFilter
-        }
+        params: { status: activeTab, page: page, sortBy: sortBy, order: order, paymentMethod: paymentFilter }
       });
       
       setOrders(response.data.data);
@@ -111,7 +106,8 @@ export default function SalesHistory() {
     if (!orderToDelete) return;
     try {
       const token = localStorage.getItem('erp_token');
-      await axios.delete(`http://localhost:3000/api/orders/${orderToDelete}`, {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+      await axios.delete(`${API_URL}/api/orders/${orderToDelete}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setOrderToDelete(null);
@@ -124,7 +120,8 @@ export default function SalesHistory() {
     if (!requestReason.trim()) return alert("Debes indicar un motivo.");
     try {
       const token = localStorage.getItem('erp_token');
-      await axios.post(`http://localhost:3000/api/orders/${orderToRequest}/request-cancellation`, 
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+      await axios.post(`${API_URL}/api/orders/${orderToRequest}/request-cancellation`, 
         { reason: requestReason }, 
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -140,7 +137,8 @@ export default function SalesHistory() {
   const resolveRequest = async (orderId: string, approved: boolean) => {
     try {
       const token = localStorage.getItem('erp_token');
-      await axios.post(`http://localhost:3000/api/orders/${orderId}/resolve-cancellation`, 
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+      await axios.post(`${API_URL}/api/orders/${orderId}/resolve-cancellation`, 
         { approved }, 
         { headers: { Authorization: `Bearer ${token}` } }
       );

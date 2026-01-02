@@ -60,11 +60,11 @@ export default function ProductFormModal({ isOpen, onClose, onSuccess, productTo
     }
   }, [isOpen, productToEdit]);
 
-  const fetchCategories = async () => {
+const fetchCategories = async () => {
     try {
       const token = localStorage.getItem('erp_token');
-      // Intenta cargar categorías de la BD
-      const res = await axios.get('http://localhost:3000/api/categories', {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+      const res = await axios.get(`${API_URL}/api/categories`, {
          headers: { Authorization: `Bearer ${token}` }
       });
       setCategories(res.data);
@@ -83,7 +83,8 @@ export default function ProductFormModal({ isOpen, onClose, onSuccess, productTo
     formDataUpload.append('file', file);
     try {
       const token = localStorage.getItem('erp_token');
-      const response = await axios.post('http://localhost:3000/api/products/upload', formDataUpload, {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+      const response = await axios.post(`${API_URL}/api/products/upload`, formDataUpload, {
         headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` }
       });
       setFormData(prev => ({ ...prev, image: response.data.url }));
@@ -96,12 +97,14 @@ export default function ProductFormModal({ isOpen, onClose, onSuccess, productTo
     setLoading(true);
     try {
       const token = localStorage.getItem('erp_token');
-      const payload = { ...formData, price: parseFloat(formData.price), stock: parseInt(formData.stock) };
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
 
+      const payload = { ...formData, price: parseFloat(formData.price), stock: parseInt(formData.stock) };
+      
       if (productToEdit) {
-        await axios.patch(`http://localhost:3000/api/products/${productToEdit.id}`, payload, { headers: { Authorization: `Bearer ${token}` } });
+        await axios.patch(`${API_URL}/api/products/${productToEdit.id}`, payload, { headers: { Authorization: `Bearer ${token}` } });
       } else {
-        await axios.post('http://localhost:3000/api/products', payload, { headers: { Authorization: `Bearer ${token}` } });
+        await axios.post(`${API_URL}/api/products`, payload, { headers: { Authorization: `Bearer ${token}` } });
       }
       onSuccess();
       onClose();

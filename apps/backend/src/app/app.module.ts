@@ -35,7 +35,10 @@ import { Category } from './modules/categories/entities/category.entity'; // �
       autoLoadEntities: true,
       synchronize: true,
       // dropSchema: true,
-      ssl: { rejectUnauthorized: false },
+      ssl: true, // 👈 IMPORTANTE PARA NEON
+  extra: {
+    ssl: { rejectUnauthorized: false }, // 👈 NECESARIO PARA QUE NO FALLE EL CERTIFICADO
+  },
     }),
 
     ServeStaticModule.forRoot({

@@ -17,22 +17,25 @@ export default function PendingRequestsWidget() {
 
   useEffect(() => { fetchRequests(); }, []);
 
-  const fetchRequests = async () => {
+const fetchRequests = async () => {
     try {
       const token = localStorage.getItem('erp_token');
-      const res = await axios.get('http://localhost:3000/api/finances/summary', {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+
+      const res = await axios.get(`${API_URL}/api/finances/summary`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      // El backend ahora nos manda 'pendingRequests'
       setRequests(res.data.pendingRequests || []);
     } catch (error) { console.error(error); }
   };
 
-  const handleResolve = async (id: string, approved: boolean) => {
+const handleResolve = async (id: string, approved: boolean) => {
     setLoading(true);
     try {
       const token = localStorage.getItem('erp_token');
-      await axios.post(`http://localhost:3000/api/orders/${id}/resolve-cancellation`, 
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+
+      await axios.post(`${API_URL}/api/orders/${id}/resolve-cancellation`, 
         { approved }, 
         { headers: { Authorization: `Bearer ${token}` } }
       );

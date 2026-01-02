@@ -42,6 +42,8 @@ export default function ExpensesManager() {
     setLoading(true);
     try {
       const token = localStorage.getItem('erp_token');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+
       const params: any = { page, limit: LIMIT };
       
       if (filters.search) params.search = filters.search;
@@ -49,7 +51,7 @@ export default function ExpensesManager() {
       if (filters.startDate) params.startDate = filters.startDate;
       if (filters.endDate) params.endDate = filters.endDate;
 
-      const res = await axios.get('http://localhost:3000/api/finances/expenses', { 
+      const res = await axios.get(`${API_URL}/api/finances/expenses`, { 
         headers: { Authorization: `Bearer ${token}` },
         params
       });
@@ -67,17 +69,16 @@ export default function ExpensesManager() {
     
     try {
       const token = localStorage.getItem('erp_token');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
       const payload = { ...form, amount: parseFloat(form.amount) };
 
       if (isEditing) {
-        // EDITAR
-        await axios.patch(`http://localhost:3000/api/finances/expenses/${form.id}`, payload, {
+        await axios.patch(`${API_URL}/api/finances/expenses/${form.id}`, payload, {
            headers: { Authorization: `Bearer ${token}` }
         });
         alert("Gasto actualizado");
       } else {
-        // CREAR
-        await axios.post('http://localhost:3000/api/finances/expenses', payload, {
+        await axios.post(`${API_URL}/api/finances/expenses`, payload, {
            headers: { Authorization: `Bearer ${token}` }
         });
         alert("Gasto registrado");
@@ -109,7 +110,8 @@ export default function ExpensesManager() {
     if(!confirm("¿Borrar este gasto permanentemente?")) return;
     try {
       const token = localStorage.getItem('erp_token');
-      await axios.delete(`http://localhost:3000/api/finances/expenses/${id}`, { 
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+      await axios.delete(`${API_URL}/api/finances/expenses/${id}`, { 
         headers: { Authorization: `Bearer ${token}` } 
       });
       fetchExpenses();

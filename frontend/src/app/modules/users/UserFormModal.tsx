@@ -40,15 +40,16 @@ export default function UserFormModal({ isOpen, onClose, onSuccess, userToEdit }
     try {
       const token = localStorage.getItem('erp_token');
       const headers = { Authorization: `Bearer ${token}` };
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       
       if (userToEdit?.id) {
         // EDITAR
         const payload = { ...formData };
-        if (!payload.password) delete payload.password; // No enviar si está vacío
-        await axios.patch(`http://localhost:3000/api/users/${userToEdit.id}`, payload, { headers });
+        if (!payload.password) delete payload.password;
+        await axios.patch(`${API_URL}/api/users/${userToEdit.id}`, payload, { headers });
       } else {
         // CREAR
-        await axios.post('http://localhost:3000/api/users', formData, { headers });
+        await axios.post(`${API_URL}/api/users`, formData, { headers });
       }
       onSuccess();
       onClose();

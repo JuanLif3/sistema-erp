@@ -7,13 +7,19 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']; // Color
 export default function CategoryChart() {
   const [data, setData] = useState([]);
 
-  useEffect(() => {
+useEffect(() => {
     const fetchData = async () => {
       try {
+        // 👇 1. Definimos la URL base (Si no encuentra la variable, usa localhost por defecto)
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        
         const token = localStorage.getItem('erp_token');
-        const res = await axios.get('http://localhost:3000/api/finances/categories', {
+        
+        // 👇 2. Usamos esa variable en la petición (fíjate en las comillas invertidas ` `)
+        const res = await axios.get(`${apiUrl}/api/finances/categories`, {
           headers: { Authorization: `Bearer ${token}` }
         });
+
         // Convertimos el valor string a número
         const formatted = res.data.map((d: any) => ({ ...d, value: Number(d.value) }));
         setData(formatted);

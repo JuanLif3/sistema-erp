@@ -42,13 +42,16 @@ export default function ProductsList() {
     fetchProducts();
   }, [sortOption, showLowStock]);
 
-  const fetchProducts = async () => {
+const fetchProducts = async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('erp_token');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; 
+      
+      // 👇 ESTA LÍNEA FALTABA: Recuperamos el ordenamiento del estado
       const [sortBy, order] = sortOption.split('-');
       
-      const response = await axios.get('http://localhost:3000/api/products', {
+      const response = await axios.get(`${API_URL}/api/products`, {
         headers: { Authorization: `Bearer ${token}` },
         params: { 
           sortBy, 
@@ -64,20 +67,22 @@ export default function ProductsList() {
     }
   };
 
-  // Cambiar Estado (Activo/Inactivo)
+// Cambiar Estado (Activo/Inactivo)
   const toggleStatus = async (product: Product) => {
-    if (!canEdit) return; // Protección extra
+    if (!canEdit) return; // Protección de permisos
     try {
       const token = localStorage.getItem('erp_token');
-      await axios.patch(`http://localhost:3000/api/products/${product.id}`, {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      
+      await axios.patch(`${API_URL}/api/products/${product.id}`, {
         isActive: !product.isActive 
       }, { headers: { Authorization: `Bearer ${token}` } });
       
-      // Actualización optimista en UI
+      // 👇 ESTA LÍNEA FALTABA: Actualiza el color del botón visualmente
       setProducts(products.map(p => p.id === product.id ? { ...p, isActive: !p.isActive } : p));
+      
     } catch (error) { alert("Error cambiando estado"); }
   };
-
   const handleEdit = (product: Product) => {
     setEditingProduct(product);
     setIsModalOpen(true);
@@ -96,7 +101,8 @@ export default function ProductsList() {
     if (!productToDelete) return;
     try {
       const token = localStorage.getItem('erp_token');
-      await axios.delete(`http://localhost:3000/api/products/${productToDelete}`, {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+      await axios.delete(`${API_URL}/api/products/${productToDelete}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchProducts();

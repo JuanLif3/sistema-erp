@@ -26,7 +26,8 @@ export default function UsersList() {
     setLoading(true);
     try {
       const token = localStorage.getItem('erp_token');
-      const res = await axios.get('http://localhost:3000/api/users', {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+      const res = await axios.get(`${API_URL}/api/users`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setUsers(res.data);
@@ -39,7 +40,8 @@ export default function UsersList() {
     if (!confirm('¿Eliminar usuario permanentemente?')) return;
     try {
       const token = localStorage.getItem('erp_token');
-      await axios.delete(`http://localhost:3000/api/users/${id}`, {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+      await axios.delete(`${API_URL}/api/users/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchUsers();
@@ -49,7 +51,8 @@ export default function UsersList() {
   const toggleStatus = async (user: User) => {
     try {
       const token = localStorage.getItem('erp_token');
-      await axios.patch(`http://localhost:3000/api/users/${user.id}`, 
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+      await axios.patch(`${API_URL}/api/users/${user.id}`, 
         { isActive: !user.isActive }, 
         { headers: { Authorization: `Bearer ${token}` } }
       );

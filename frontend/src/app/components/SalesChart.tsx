@@ -21,10 +21,11 @@ export default function SalesChart() {
     loadData();
   }, [range, filterMode]); // Recargar si cambia el preset o el modo
 
-  const loadData = async () => {
+const loadData = async () => {
     try {
       const token = localStorage.getItem('erp_token');
-      let url = 'http://localhost:3000/api/finances/history';
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+      let url = `${API_URL}/api/finances/history`;
       
       // Construimos la URL según el modo
       if (filterMode === 'preset') {

@@ -5,11 +5,13 @@ import axios from 'axios';
 export default function TopProductsChart() {
   const [data, setData] = useState([]);
 
-  useEffect(() => {
+useEffect(() => {
     const fetchData = async () => {
       try {
         const token = localStorage.getItem('erp_token');
-        const res = await axios.get('http://localhost:3000/api/finances/top-products', {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+
+        const res = await axios.get(`${API_URL}/api/finances/top-products`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         // Formateamos para que el gráfico entienda

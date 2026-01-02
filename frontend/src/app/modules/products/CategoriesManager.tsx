@@ -12,10 +12,11 @@ export default function CategoriesManager({ isOpen, onClose, onUpdate }: Props) 
 
   useEffect(() => { if (isOpen) fetchCategories(); }, [isOpen]);
 
-  const fetchCategories = async () => {
+const fetchCategories = async () => {
     try {
       const token = localStorage.getItem('erp_token');
-      const res = await axios.get('http://localhost:3000/api/categories', {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+      const res = await axios.get(`${API_URL}/api/categories`, {
          headers: { Authorization: `Bearer ${token}` }
       });
       setCategories(res.data);
@@ -28,7 +29,8 @@ export default function CategoriesManager({ isOpen, onClose, onUpdate }: Props) 
     setLoading(true);
     try {
       const token = localStorage.getItem('erp_token');
-      await axios.post('http://localhost:3000/api/categories', { name: newCategory }, {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+      await axios.post(`${API_URL}/api/categories`, { name: newCategory }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setNewCategory('');
@@ -44,7 +46,8 @@ export default function CategoriesManager({ isOpen, onClose, onUpdate }: Props) 
     if(!confirm('¿Borrar categoría?')) return;
     try {
       const token = localStorage.getItem('erp_token');
-      await axios.delete(`http://localhost:3000/api/categories/${id}`, {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+      await axios.delete(`${API_URL}/api/categories/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchCategories();
