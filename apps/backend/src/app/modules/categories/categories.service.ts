@@ -1,29 +1,41 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Category } from './entities/category.entity';
 
 @Injectable()
 export class CategoriesService {
-  constructor(@InjectRepository(Category) private repo: Repository<Category>) {}
+  repo: any;
+  constructor(
+    @InjectRepository(Category) private categoryRepo: Repository<Category>
+  ) {}
 
-  findAll() {
-    return this.repo.find({ order: { name: 'ASC' } });
+  // Listar solo las mías
+  findAll(user: any) {
+    return this.categoryRepo.find({
+      where: { companyId: user.companyId } // 👈 Filtro SaaS
+    });
   }
 
-  async create(name: string) {
-    // Verificar si ya existe (insensible a mayúsculas)
-    const exists = await this.repo.createQueryBuilder('category')
-      .where('LOWER(category.name) = LOWER(:name)', { name })
-      .getOne();
-      
-    if (exists) throw new BadRequestException('Esta categoría ya existe');
-
-    const category = this.repo.create({ name });
-    return this.repo.save(category);
+  // Crear con dueño
+  async create(createCategoryDto: any, user: any) {
+    const category = this.categoryRepo.create({
+      ...createCategoryDto,
+      companyId: user.companyId // 👈 Tatuamos la empresa
+    });
+    return this.categoryRepo.save(category);
   }
 
-  async remove(id: string) {
+  // Buscar una (seguro)
+  async findOne(id: string, user: any) {
+    const category = await this.categoryRepo.findOne({
+      where: { id, companyId: user.companyId }
+    });
+    if (!category) throw new NotFoundException('Categoría no encontrada');
+    return category;
+  }
+
+  async remove(id: string, user: any) {
     return this.repo.delete(id);
   }
 }

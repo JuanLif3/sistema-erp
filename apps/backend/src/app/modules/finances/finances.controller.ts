@@ -1,6 +1,6 @@
-import { Controller, Get, UseGuards, Query, Res, Post, Body, Delete, Param, Patch } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, Request, Res } from '@nestjs/common';
 import { FinancesService } from './finances.service';
+import { AuthGuard } from '@nestjs/passport';
 import { Response } from 'express';
 
 @UseGuards(AuthGuard('jwt'))
@@ -8,127 +8,110 @@ import { Response } from 'express';
 export class FinancesController {
   constructor(private readonly financesService: FinancesService) {}
 
-  @Post('expenses')
-  createExpense(@Body() body: any) {
-    return this.financesService.createExpense(body);
-  }
-
-@Get('expenses')
+  @Get('expenses')
   getExpenses(
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '20',
-    @Query('category') category?: string,
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
-    @Query('search') search?: string,
+    @Query('category') category: string,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+    @Query('search') search: string,
+    @Request() req // 👈 Inyectar usuario
   ) {
     return this.financesService.getExpenses(
-      parseInt(page), 
-      parseInt(limit), 
-      category, 
-      startDate ? new Date(startDate) : undefined, 
+      req.user, // 👈 Pasar usuario
+      parseInt(page),
+      parseInt(limit),
+      category,
+      startDate ? new Date(startDate) : undefined,
       endDate ? new Date(endDate) : undefined,
       search
     );
   }
 
-  // 👇 NUEVO: Endpoint Editar
-  @Patch('expenses/:id')
-  updateExpense(@Param('id') id: string, @Body() body: any) {
-    return this.financesService.updateExpense(id, body);
+  @Post('expenses')
+  createExpense(@Body() body: any, @Request() req) {
+    return this.financesService.createExpense(body, req.user); // 👈 Pasar usuario
   }
-  
+
+  @Patch('expenses/:id')
+  updateExpense(@Param('id') id: string, @Body() body: any, @Request() req) {
+    return this.financesService.updateExpense(id, body, req.user); // 👈 Pasar usuario
+  }
 
   @Delete('expenses/:id')
-  deleteExpense(@Param('id') id: string) {
-    return this.financesService.deleteExpense(id);
+  deleteExpense(@Param('id') id: string, @Request() req) {
+    return this.financesService.deleteExpense(id, req.user); // 👈 Pasar usuario
   }
 
   @Get('summary')
-  getSummary() {
-    return this.financesService.getSummary();
+  getSummary(
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+    @Request() req
+  ) {
+    return this.financesService.getSummary(
+      req.user, 
+      startDate ? new Date(startDate) : undefined,
+      endDate ? new Date(endDate) : undefined
+    );
   }
 
-  // 👇 ACTUALIZADO: Lógica de fechas corregida para incluir todo el día de hoy
   @Get('history')
-  getHistory(
-    @Query('days') days?: string,
-    @Query('startDate') startDateStr?: string,
-    @Query('endDate') endDateStr?: string
+  getSalesHistory(
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+    @Request() req
   ) {
-    let startDate: Date;
-    let endDate: Date;
-
-    if (startDateStr && endDateStr) {
-      // MODO RANGO PERSONALIZADO
-      startDate = new Date(startDateStr);
-      endDate = new Date(endDateStr);
-      // Ajustamos al final del día
-      endDate.setHours(23, 59, 59, 999);
-      // Ajustamos al inicio del día (opcional pero recomendable)
-      startDate.setHours(0, 0, 0, 0);
-    } else {
-      // MODO PRESET (7 días, 30 días, etc.)
-      const daysCount = days ? parseInt(days) : 30;
-      
-      endDate = new Date();
-      // ¡CLAVE! Forzamos el final del día de hoy para no perder ventas por Timezone
-      endDate.setHours(23, 59, 59, 999);
-
-      startDate = new Date();
-      startDate.setDate(startDate.getDate() - daysCount);
-      // Forzamos el inicio del día para tener barras completas
-      startDate.setHours(0, 0, 0, 0);
-    }
-
-    return this.financesService.getSalesHistory(startDate, endDate);
+    // Definimos fechas por defecto si no vienen
+    const start = startDate ? new Date(startDate) : new Date(new Date().setDate(new Date().getDate() - 30));
+    const end = endDate ? new Date(endDate) : new Date();
+    
+    return this.financesService.getSalesHistory(req.user, start, end);
   }
 
   @Get('categories')
-  getCategories() {
-    return this.financesService.getSalesByCategory();
+  getCategories(@Request() req) {
+    return this.financesService.getSalesByCategory(req.user);
   }
 
   @Get('top-products')
-  getTopProducts() {
-    const endDate = new Date();
-    // También ajustamos aquí para consistencia
-    endDate.setHours(23, 59, 59, 999); 
-    
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 30);
-    startDate.setHours(0, 0, 0, 0);
-    
-    return this.financesService.getTopProducts(startDate, endDate);
+  getTopProducts(
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+    @Request() req
+  ) {
+    return this.financesService.getTopProducts(
+        req.user, 
+        startDate ? new Date(startDate) : undefined,
+        endDate ? new Date(endDate) : undefined
+    );
   }
 
   @Get('simulate')
-  simulate() {
-    return this.financesService.simulateSales();
+  simulate(@Request() req) {
+    return this.financesService.simulateSales(req.user);
   }
 
   @Get('report')
-  async getReport(
-    @Res() res: Response, 
-    @Query('startDate') startDate?: string, 
-    @Query('endDate') endDate?: string
+  async generateReport(
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+    @Res() res: Response,
+    @Request() req
   ) {
-    const start = startDate ? new Date(startDate) : undefined;
-    const end = endDate ? new Date(endDate) : undefined;
-    
-    // El servicio ya maneja defaults, pero si vienen fechas, aseguramos el final del día
-    if (end) end.setHours(23, 59, 59, 999);
-    if (start) start.setHours(0, 0, 0, 0);
-
-    const buffer = await this.financesService.generateReport(start, end);
+    const buffer = await this.financesService.generateReport(
+        req.user,
+        startDate ? new Date(startDate) : undefined,
+        endDate ? new Date(endDate) : undefined
+    );
 
     res.set({
       'Content-Type': 'application/pdf',
-      'Content-Disposition': 'attachment; filename=Reporte_Ventas.pdf',
+      'Content-Disposition': `attachment; filename=Reporte_Financiero.pdf`,
       'Content-Length': buffer.length,
     });
+
     res.end(buffer);
   }
-
-  
 }

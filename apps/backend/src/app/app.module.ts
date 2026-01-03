@@ -4,13 +4,16 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 
-// Módulos
+// Módulos Existentes
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { ProductsModule } from './modules/products/products.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { FinancesModule } from './modules/finances/finances.module';
-import { CategoriesModule } from './modules/categories/categories.module'; // 👈 1. IMPORTAR ESTO
+import { CategoriesModule } from './modules/categories/categories.module';
+
+// 👇 1. IMPORTAR EL MÓDULO DE COMPAÑÍAS
+import { CompaniesModule } from './modules/companies/companies.module'; 
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -21,7 +24,8 @@ import { User } from './modules/users/entities/user.entity';
 import { Product } from './modules/products/entities/product.entity';
 import { Order } from './modules/orders/entities/order.entity';
 import { OrderItem } from './modules/orders/entities/order-item.entity';
-import { Category } from './modules/categories/entities/category.entity'; // 👈 2. IMPORTAR ESTO
+import { Category } from './modules/categories/entities/category.entity';
+import { Company } from './modules/companies/entities/company.entity'; 
 
 @Module({
   imports: [
@@ -30,15 +34,16 @@ import { Category } from './modules/categories/entities/category.entity'; // �
     TypeOrmModule.forRoot({
       type: 'postgres',
       url: process.env.DATABASE_URL,
-      // 👇 3. AGREGAR Category AQUI
-      entities: [User, Product, Order, OrderItem, Expense, Category], 
+      entities: [
+        User, Product, Order, OrderItem, Expense, Category, Company
+      ], 
       autoLoadEntities: true,
       synchronize: true,
       // dropSchema: true,
-      ssl: true, // 👈 IMPORTANTE PARA NEON
-  extra: {
-    ssl: { rejectUnauthorized: false }, // 👈 NECESARIO PARA QUE NO FALLE EL CERTIFICADO
-  },
+      ssl: true,
+      extra: {
+        ssl: { rejectUnauthorized: false },
+      },
     }),
 
     ServeStaticModule.forRoot({
@@ -51,7 +56,10 @@ import { Category } from './modules/categories/entities/category.entity'; // �
     ProductsModule,
     OrdersModule,
     FinancesModule,
-    CategoriesModule, // 👈 4. AGREGAR EL MÓDULO AQUI
+    CategoriesModule,
+    
+    // 👇 2. AGREGARLO AL ARRAY DE IMPORTS
+    CompaniesModule, 
   ],
   controllers: [AppController],
   providers: [AppService],

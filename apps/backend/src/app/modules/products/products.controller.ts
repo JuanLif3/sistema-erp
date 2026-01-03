@@ -45,11 +45,11 @@ export class ProductsController {
 
   @Get()
   findAll(
+    @Request() req,
     @Query('active') active?: string,
     @Query('lowStock') lowStock?: string,
     @Query('sortBy') sortBy?: string,
     @Query('order') order?: string,
-    @Request() req // 👈 3. Inyectamos la request para obtener el usuario
   ) {
     return this.productsService.findAll(
       active === 'true',

@@ -1,32 +1,59 @@
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
+import { DataSource } from 'typeorm'; 
 import { AppModule } from './app/app.module';
-import { UsersService } from './app/modules/users/users.service';
+import { User } from './app/modules/users/entities/user.entity'; // 👈 Importamos Entidad User
+import { Company } from './app/modules/companies/entities/company.entity';
+import * as bcrypt from 'bcrypt'; // 👈 Necesitamos bcrypt aquí para hashear manual
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
-  // Configuración Global
+  const configService = app.get(ConfigService);
+  const dataSource = app.get(DataSource); // Acceso directo a la BD
+  
   app.enableCors();
   app.setGlobalPrefix('api');
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }));
 
-  // 👇 SCRIPT DE SEEDING (Crear Admin si no existe)
-  const usersService = app.get(UsersService);
-  const users = await usersService.findAll();
+  // 👇 SCRIPT DE SEEDING CORREGIDO (Modo Dios / Repositorios Directos)
+  const userRepo = dataSource.getRepository(User);     // 👈 Usamos Repo, no Service
+  const companyRepo = dataSource.getRepository(Company);
+
+  // Verificamos si hay usuarios (usando count para ser más eficientes)
+  const usersCount = await userRepo.count();
   
-  if (users.length === 0) {
-    Logger.log('⚠️ Base de datos vacía. Creando Super Admin...', 'Bootstrap');
+  if (usersCount === 0) {
+    Logger.log('⚠️ Base de datos vacía. Iniciando Seeding SaaS...', 'Bootstrap');
     
-    await usersService.create({
-      fullName: 'Administrador Principal',
-      email: 'admin@sistema.com',     // 👈 TU CORREO DE ADMIN
-      password: 'admin123',           // 👈 TU CONTRASEÑA DE INICIO
-      roles: ['admin'],
+    // 1. Crear Empresa Matriz
+    Logger.log('🏢 Creando Empresa Principal...', 'Bootstrap');
+    const newCompany = companyRepo.create({
+      name: 'Empresa Matriz (Admin)',
+      rut: '99.999.999-9',
       isActive: true
     });
+    const savedCompany = await companyRepo.save(newCompany);
+
+    // 2. Crear Super Admin
+    const adminEmail = configService.get<string>('ADMIN_EMAIL') || 'admin@sistema.com';
+    const adminPassword = configService.get<string>('ADMIN_PASSWORD') || 'admin123';
+    const hashedPassword = await bcrypt.hash(adminPassword, 10); // Hasheamos manual
+
+    // 👇 ERROR 2 y 3 SOLUCIONADOS: Usamos save() directo, sin pasar por las reglas del Service
+    const newAdmin = userRepo.create({
+      fullName: 'Administrador Principal',
+      email: adminEmail,
+      password: hashedPassword,
+      roles: ['admin', 'super-admin'],
+      isActive: true,
+      company: savedCompany // Vinculamos a la empresa creada arriba
+    });
     
-    Logger.log('✅ Super Admin creado: admin@sistema.com / admin123', 'Bootstrap');
+    await userRepo.save(newAdmin);
+    
+    Logger.log(`✅ Super Admin creado: ${adminEmail} (Empresa: ${savedCompany.name})`, 'Bootstrap');
   }
   // 👆 FIN DEL SCRIPT
 

@@ -76,6 +76,17 @@ export default function UserFormModal({ isOpen, onClose, onSuccess, userToEdit }
             </div>
           </div>
 
+          <select 
+  value={formData.roles} 
+  onChange={e => setFormData({...formData, roles: e.target.value})}
+  className="..."
+>
+  <option value="employee">Vendedor / Empleado</option>
+  <option value="manager">Gerente de Tienda</option>
+  <option value="admin">Administrador Total</option>
+  {/* Nota: NO pongas 'super-admin' aquí, ese rol es solo tuyo */}
+</select>
+
           <div>
             <label className="text-xs font-bold text-slate-500 uppercase">Correo Electrónico</label>
             <div className="relative mt-1">

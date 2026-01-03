@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Company } from '../../companies/entities/company.entity'; // 👈 Importar Company
 
 @Entity('expenses')
 export class Expense {
@@ -12,8 +13,16 @@ export class Expense {
   amount: number;
 
   @Column()
-  category: string; // 'rent', 'utilities', 'salary', 'other'
+  category: string; 
 
   @CreateDateColumn()
   date: Date;
+
+  // 👇 AGREGAR ESTO PARA SOPORTE SAAS
+  @ManyToOne(() => Company)
+  @JoinColumn({ name: 'companyId' })
+  company: Company;
+
+  @Column('uuid')
+  companyId: string;
 }
