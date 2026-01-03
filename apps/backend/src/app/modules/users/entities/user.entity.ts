@@ -38,4 +38,10 @@ export class User {
 
     @Column()
     companyId: string; // Para acceso rápido sin join
+
+    @Column({ nullable: true })
+  resetPasswordToken: string;
+
+  @Column({ nullable: true })
+  resetPasswordExpires: Date;
 }

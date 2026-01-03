@@ -163,14 +163,184 @@ export class FinancesService {
     return { message: 'Datos simulados exitosamente.' };
   }
 
-  // 5. PDF (Simplificado para brevedad)
+  // ===========================================================================
+  // 4. GENERADOR DE PDF MAESTRO (CORREGIDO HORA 00:00 a 23:59)
+  // ===========================================================================
   async generateReport(user: any, start?: Date, end?: Date): Promise<Buffer> {
-    const doc = new PDFDocument({ margin: 50 });
+    
+    // 1. CORRECCIÓN DE FECHAS (Timezone Fix)
+    // Convertimos la entrada a un objeto Date fresco
+    const rawStart = start ? new Date(start) : new Date(new Date().setDate(new Date().getDate() - 30));
+    const rawEnd = end ? new Date(end) : new Date();
+
+    // Extraemos solo la parte YYYY-MM-DD para evitar el desfase de zona horaria
+    // Usamos split('T') si viene en formato ISO, o construimos manual si es necesario
+    const startString = rawStart.toISOString().split('T')[0];
+    const endString = rawEnd.toISOString().split('T')[0];
+
+    // 2. CREAMOS LOS OBJETOS FECHA ABSOLUTOS (String + Hora Fija)
+    // Esto fuerza a la BD a buscar desde el segundo 0 del día 1 hasta el último milisegundo del día 2
+    const startDate = new Date(`${startString}T00:00:00.000`);
+    const endDate = new Date(`${endString}T23:59:59.999`);
+
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
     const buffers: Buffer[] = [];
+
     doc.on('data', buffers.push.bind(buffers));
     doc.on('end', () => { /* empty */ });
+
+    // --- CARGAR DATOS (Usando las nuevas fechas corregidas) ---
+    const summary = await this.getSummary(user, startDate, endDate);
+    const topProducts = await this.getTopProducts(user, startDate, endDate);
     
-    doc.fontSize(20).text(`Reporte Financiero (ID Empresa: ${user.companyId.slice(0,8)})`, { align: 'center' });
+    // Categorías
+    const categoriesData = await this.dataSource.getRepository(OrderItem)
+      .createQueryBuilder('item')
+      .leftJoin('item.product', 'product')
+      .leftJoin('item.order', 'order')
+      .select(['product.category as name', 'SUM(item.quantity * item.priceAtPurchase) as value', 'COUNT(product.id) as count'])
+      .where("order.status = 'completed'")
+      .andWhere("order.companyId = :cid", { cid: user.companyId })
+      .andWhere("order.createdAt >= :start", { start: startDate }) // 👈 Usamos >= y <= para precisión
+      .andWhere("order.createdAt <= :end", { end: endDate })
+      .groupBy('product.category')
+      .orderBy('value', 'DESC')
+      .getRawMany();
+
+    // Todas las órdenes
+    const allOrders = await this.orderRepository.find({
+      where: {
+        status: 'completed',
+        companyId: user.companyId,
+        createdAt: Between(startDate, endDate)
+      },
+      order: { createdAt: 'DESC' },
+      relations: ['user', 'items']
+    });
+
+    // --- ESTILOS ---
+    const primaryColor = '#1e3a8a';
+    const accentColor = '#64748b';
+    const lightBg = '#f1f5f9';
+    let y = 50;
+
+    // 1. ENCABEZADO
+    doc.rect(0, 0, 600, 100).fill(primaryColor);
+    doc.fillColor('#fff').fontSize(24).font('Helvetica-Bold').text('REPORTE DE VENTAS', 40, 35);
+    doc.fontSize(10).font('Helvetica').text(`Generado el: ${new Date().toLocaleString('es-CL')}`, 40, 65);
+    
+    // 👇 AQUI CORREGIMOS EL TEXTO DEL PDF
+    // Usamos 'startString' (YYYY-MM-DD) directo para que muestre exactamente lo que seleccionaste
+    // y aplicamos split('-').reverse().join('/') para que se vea DD/MM/YYYY
+    const displayStart = startString.split('-').reverse().join('/');
+    const displayEnd = endString.split('-').reverse().join('/');
+
+    doc.fillColor('#fff').fontSize(12).text('Rango Seleccionado:', 350, 35, { align: 'right' });
+    doc.font('Helvetica-Bold').text(`${displayStart} al ${displayEnd}`, 350, 50, { align: 'right' });
+
+    y = 120;
+
+    // 2. RESUMEN EJECUTIVO
+    doc.fillColor('#000').fontSize(14).font('Helvetica-Bold').text('RESUMEN DEL PERIODO', 40, y);
+    y += 25;
+
+    const drawCard = (x: number, title: string, value: string, sub: string) => {
+      doc.roundedRect(x, y, 125, 60, 5).fillAndStroke('#fff', '#e2e8f0');
+      doc.fillColor(accentColor).fontSize(8).font('Helvetica-Bold').text(title.toUpperCase(), x + 10, y + 10);
+      doc.fillColor(primaryColor).fontSize(14).text(value, x + 10, y + 25);
+      doc.fillColor(accentColor).fontSize(8).font('Helvetica').text(sub, x + 10, y + 45);
+    };
+
+    drawCard(40, 'Ventas Totales', `$${summary.totalRevenue.toLocaleString()}`, 'Ingresos Brutos');
+    drawCard(175, 'Total Pedidos', summary.totalOrders.toString(), 'Transacciones');
+    drawCard(310, 'Ticket Promedio', `$${Math.round(summary.avgTicket).toLocaleString()}`, 'Por venta');
+    drawCard(445, 'Utilidad Neta', `$${summary.netProfit.toLocaleString()}`, 'Ingresos - Gastos');
+
+    y += 80;
+
+    // 3. TOP PRODUCTOS & CATEGORÍAS
+    const startYSection3 = y;
+    
+    // Columna Izquierda: Top Productos
+    doc.fillColor(primaryColor).fontSize(12).font('Helvetica-Bold').text('Top 5 Productos', 40, y);
+    y += 20;
+    doc.rect(40, y, 250, 20).fill('#e2e8f0');
+    doc.fillColor('#000').fontSize(8).text('PRODUCTO', 45, y + 6).text('INGRESO', 240, y + 6);
+    y += 20;
+    
+    topProducts.forEach((p, i) => {
+      doc.rect(40, y, 250, 20).fill(i % 2 === 0 ? '#fff' : lightBg);
+      doc.fillColor('#333').text(p.name.substring(0, 30), 45, y + 6);
+      doc.text(`$${Number(p.revenue).toLocaleString()}`, 240, y + 6);
+      y += 20;
+    });
+
+    // Columna Derecha: Categorías
+    let yRight = startYSection3;
+    doc.fillColor(primaryColor).fontSize(12).font('Helvetica-Bold').text('Ventas por Categoría', 310, yRight);
+    yRight += 20;
+    doc.rect(310, yRight, 240, 20).fill('#e2e8f0');
+    doc.fillColor('#000').fontSize(8).text('CATEGORÍA', 315, yRight + 6).text('TOTAL', 500, yRight + 6);
+    yRight += 20;
+
+    categoriesData.forEach((c, i) => {
+      doc.rect(310, yRight, 240, 20).fill(i % 2 === 0 ? '#fff' : lightBg);
+      doc.fillColor('#333').text((c.name || 'Sin Categoría').substring(0, 25), 315, yRight + 6);
+      doc.text(`$${Number(c.value).toLocaleString()}`, 500, yRight + 6);
+      yRight += 20;
+    });
+
+    y = Math.max(y, yRight) + 30;
+
+    // 4. LISTADO DETALLADO
+    doc.fillColor(primaryColor).fontSize(14).font('Helvetica-Bold').text(`DETALLE DE TRANSACCIONES (${allOrders.length})`, 40, y);
+    y += 20;
+
+    const drawTableHeader = (currY: number) => {
+      doc.rect(40, currY, 515, 20).fill(primaryColor);
+      doc.fillColor('#fff').fontSize(8).font('Helvetica-Bold');
+      doc.text('FECHA / HORA', 45, currY + 6);
+      doc.text('CLIENTE / VENDEDOR', 140, currY + 6);
+      doc.text('ID VENTA', 280, currY + 6);
+      doc.text('ITEMS', 380, currY + 6);
+      doc.text('TOTAL', 490, currY + 6);
+    };
+
+    drawTableHeader(y);
+    y += 20;
+
+    doc.font('Helvetica').fontSize(8);
+
+    allOrders.forEach((order, i) => {
+      if (y > 750) {
+        doc.addPage();
+        y = 40;
+        drawTableHeader(y);
+        y += 20;
+      }
+
+      const rowColor = i % 2 === 0 ? '#fff' : '#f8fafc';
+      doc.rect(40, y, 515, 20).fill(rowColor);
+      doc.fillColor('#334155');
+
+      // Formato fecha local en la tabla
+      const dateStr = new Date(order.createdAt).toLocaleDateString('es-CL') + ' ' + new Date(order.createdAt).toLocaleTimeString('es-CL', {hour: '2-digit', minute:'2-digit'});
+      const clientName = order.user ? order.user.fullName : 'Sistema';
+      const itemCount = order.items ? order.items.length : 0;
+
+      doc.text(dateStr, 45, y + 6);
+      doc.text(clientName.substring(0, 25), 140, y + 6);
+      doc.text(order.id.split('-')[0], 280, y + 6);
+      doc.text(itemCount.toString(), 380, y + 6);
+      doc.font('Helvetica-Bold').text(`$${Number(order.total).toLocaleString()}`, 490, y + 6);
+      doc.font('Helvetica');
+
+      y += 20;
+    });
+
+    doc.moveTo(40, y + 10).lineTo(555, y + 10).stroke('#e2e8f0');
+    doc.fillColor('#94a3b8').fontSize(8).text('Fin del reporte.', 40, y + 20, { align: 'center' });
+
     doc.end();
     return new Promise((resolve) => resolve(Buffer.concat(buffers)));
   }

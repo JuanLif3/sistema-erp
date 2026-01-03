@@ -7,6 +7,7 @@ import { User } from '../users/entities/user.entity';
 
 @Injectable()
 export class CompaniesService {
+  companyRepo: any;
   constructor(
     @InjectRepository(Company)
     private readonly companyRepository: Repository<Company>,
@@ -14,36 +15,39 @@ export class CompaniesService {
   ) {}
 
   async createCompanyWithAdmin(data: any) {
-    const { name, rut, adminName, adminEmail, adminPassword } = data;
-
-    // Usamos una Transacción: Todo o Nada
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      // 1. Validar RUT único
-      const existing = await this.companyRepository.findOneBy({ rut });
-      if (existing) throw new BadRequestException('El RUT ya existe');
-
-      // 2. Crear Empresa
-      const newCompany = queryRunner.manager.create(Company, { name, rut });
-      const savedCompany = await queryRunner.manager.save(newCompany);
-
-      // 3. Crear Dueño
-      const hashedPassword = await bcrypt.hash(adminPassword, 10);
-      const newAdmin = queryRunner.manager.create(User, {
-        fullName: adminName,
-        email: adminEmail,
-        password: hashedPassword,
-        roles: ['admin'],
-        isActive: true,
-        company: savedCompany // 👈 Aquí se vinculan
+      // A. Crear Empresa
+      const company = this.companyRepo.create({
+        name: data.companyName,
+        rut: data.companyRut,
+        isActive: true
       });
-      await queryRunner.manager.save(newAdmin);
+      const savedCompany = await queryRunner.manager.save(company);
+
+      // B. Crear Usuario Admin para esa empresa
+      // Importante: Hashear password aquí o en el entity listener
+      // Asumiremos que usas bcrypt aquí para asegurar
+      const bcrypt = require('bcrypt'); 
+      const hashedPassword = await bcrypt.hash(data.adminPassword, 10);
+
+      const user = queryRunner.manager.create('User', { // Usamos string 'User' o importa la entidad User
+        fullName: data.adminName,
+        email: data.adminEmail,
+        password: hashedPassword,
+        roles: ['admin'], 
+        company: savedCompany,
+        companyId: savedCompany.id,
+        isActive: true
+      });
+      
+      await queryRunner.manager.save(user);
 
       await queryRunner.commitTransaction();
-      return { message: 'Pyme creada exitosamente', company: savedCompany };
+      return { message: 'Empresa creada exitosamente', company: savedCompany };
 
     } catch (err) {
       await queryRunner.rollbackTransaction();
@@ -56,4 +60,24 @@ export class CompaniesService {
   findAll() {
     return this.companyRepository.find({ order: { createdAt: 'DESC' } });
   }
+
+  async findAllForSuperAdmin() {
+    return this.companyRepo.query(`
+      SELECT c.id, c.name, c.rut, c."isActive", c."createdAt", COUNT(u.id) as "usersCount"
+      FROM companies c
+      LEFT JOIN users u ON u."companyId" = c.id
+      GROUP BY c.id
+      ORDER BY c."createdAt" DESC
+    `);
+  }
+
+  // 3. Bloquear / Desbloquear Empresa
+  async toggleStatus(id: string) {
+    const company = await this.companyRepo.findOneBy({ id });
+    if (!company) throw new Error('Empresa no encontrada');
+    
+    company.isActive = !company.isActive; // Invertir estado
+    return this.companyRepo.save(company);
+  }
+  
 }

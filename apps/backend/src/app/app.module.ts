@@ -26,10 +26,27 @@ import { Order } from './modules/orders/entities/order.entity';
 import { OrderItem } from './modules/orders/entities/order-item.entity';
 import { Category } from './modules/categories/entities/category.entity';
 import { Company } from './modules/companies/entities/company.entity'; 
+import { MailerModule } from '@nestjs-modules/mailer';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+
+    // 👇 AGREGAR ESTO
+    MailerModule.forRoot({
+      transport: {
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true, // true para 465, false para otros puertos
+        auth: {
+          user: 'sistemaerpchile@gmail.com', // ⚠️ PON TU CORREO REAL AQUÍ
+          pass: 'jmcw ofwt orgu ekjm', // ⚠️ PON LA CONTRASEÑA DE APLICACIÓN DE 16 LETRAS
+        },
+      },
+      defaults: {
+        from: '"Soporte ERP" <no-reply@erp.com>',
+      },
+    }),
 
     TypeOrmModule.forRoot({
       type: 'postgres',

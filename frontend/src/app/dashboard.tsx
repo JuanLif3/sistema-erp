@@ -2,7 +2,9 @@ import { useState } from 'react';
 import axios from 'axios';
 import { 
   Users, Package, ShoppingCart, DollarSign, LogOut, Menu, LayoutDashboard, X, ChevronRight, Shield, Wand2, 
-  BarChart3, Wallet // Iconos nuevos
+  BarChart3, Wallet, // Iconos nuevos
+  ShieldCheck,
+  Link
 } from 'lucide-react';
 import PendingRequestsWidget from './components/PendingRequestsWidget';
 
@@ -26,6 +28,8 @@ interface DashboardProps {
 export default function Dashboard({ onLogout }: DashboardProps) {
   // Roles
   const userRoles = JSON.parse(localStorage.getItem('erp_roles') || '["employee"]');
+  const roles = JSON.parse(localStorage.getItem('erp_roles') || '[]');
+  const isSuperAdmin = roles.includes('super-admin');
   const hasRole = (requiredRoles: string[]) => {
     if (userRoles.includes('admin')) return true;
     return requiredRoles.some(r => userRoles.includes(r));
@@ -92,6 +96,15 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
   return (
     <div className="flex h-screen bg-gray-100 font-sans overflow-hidden">
+      {isSuperAdmin && (
+  <Link 
+    to="/super-admin" 
+    className="flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors rounded-lg mb-1"
+  >
+    <ShieldCheck size={20} className="text-indigo-400" />
+    <span className="font-medium">Super Admin</span>
+  </Link>
+)}
       
 
       {/* SIDEBAR */}
@@ -100,7 +113,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         <div className="flex items-center justify-between p-6 border-b border-slate-800">
           <div className="flex items-center space-x-3">
             <div className="bg-brand-600 p-2 rounded-lg"><LayoutDashboard size={24} className="text-white" /></div>
-            <span className="text-2xl font-bold tracking-tight">ERP Pro</span>
+            <span className="text-2xl font-bold tracking-tight">Dashboard</span>
           </div>
           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-slate-400 hover:text-white"><X size={24} /></button>
         </div>

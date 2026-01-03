@@ -1,11 +1,14 @@
 import { useState, useEffect, JSX } from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'; // 👈 Importamos Router
+import { Routes, Route, Navigate, useNavigate, Link } from 'react-router-dom'; // 👈 Importamos Router
 import axios from 'axios';
 import { Loader2, Lock, Mail } from 'lucide-react';
 
 // Módulos
 import Dashboard from './dashboard';
 import SaaSManager from './modules/admin/SaaSManager';
+import ForgotPassword from './modules/auth/ForgotPassword';
+import ResetPassword from './modules/auth/ResetPassword';
+
 
 // Componente Interno: LOGIN
 function Login() {
@@ -76,6 +79,12 @@ function Login() {
                 className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                 placeholder="••••••" />
             </div>
+
+            <div className="flex justify-end">
+            <Link to="/forgot-password" className="text-sm text-indigo-600 hover:text-indigo-800 font-medium hover:underline">
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </div>
           </div>
           <button type="submit" disabled={loading}
             className="w-full bg-slate-900 hover:bg-black text-white py-2.5 rounded-lg font-medium shadow-lg flex justify-center items-center gap-2 disabled:opacity-70">
@@ -129,6 +138,9 @@ export function App() {
       
       {/* Default: Redirigir a login */}
       <Route path="*" element={<Navigate to="/login" />} />
+
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+<Route path="/reset-password" element={<ResetPassword />} />
     </Routes>
   );
 }
