@@ -13,7 +13,7 @@ useEffect(() => {
         // 👇 1. Definimos la URL base (Si no encuentra la variable, usa localhost por defecto)
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
         
-        const token = localStorage.getItem('erp_token');
+        const token = sessionStorage.getItem('erp_token');
         
         // 👇 2. Usamos esa variable en la petición (fíjate en las comillas invertidas ` `)
         const res = await axios.get(`${apiUrl}/api/finances/categories`, {

@@ -30,7 +30,7 @@ export default function ExpensesManager() {
   const fetchExpenses = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('erp_token');
+      const token = sessionStorage.getItem('erp_token');
       const response = await axios.get(`${API_URL}/api/finances/expenses`, {
         headers: { Authorization: `Bearer ${token}` },
         params: {
@@ -47,7 +47,7 @@ export default function ExpensesManager() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('erp_token');
+      const token = sessionStorage.getItem('erp_token');
       // Enviamos amount como número
       const payload = {
         ...formData,
@@ -71,7 +71,7 @@ export default function ExpensesManager() {
     // eslint-disable-next-line no-restricted-globals
     if(!confirm('¿Eliminar este gasto?')) return;
     try {
-      const token = localStorage.getItem('erp_token');
+      const token = sessionStorage.getItem('erp_token');
       await axios.delete(`${API_URL}/api/finances/expenses/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });

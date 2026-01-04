@@ -42,7 +42,7 @@ export default function SalesHistory() {
   const [reasonModalData, setReasonModalData] = useState<{open: boolean, text: string, id: string}>({open: false, text: '', id: ''});
 
   useEffect(() => {
-    const rolesStr = localStorage.getItem('erp_roles');
+    const token = sessionStorage.getItem('erp_token');
     if (rolesStr) {
       try {
         const roles = JSON.parse(rolesStr);
@@ -55,7 +55,7 @@ export default function SalesHistory() {
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('erp_token');
+      const token = sessionStorage.getItem('erp_token');
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const response = await axios.get(`${API_URL}/api/orders`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -72,7 +72,7 @@ export default function SalesHistory() {
   const submitRequest = async () => {
     if (!requestReason.trim()) return alert("Debes escribir un motivo");
     try {
-      const token = localStorage.getItem('erp_token');
+      const token = sessionStorage.getItem('erp_token');
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       await axios.post(`${API_URL}/api/orders/${orderToRequest}/request-cancellation`, 
         { reason: requestReason }, 
@@ -84,9 +84,10 @@ export default function SalesHistory() {
   };
 
   const resolveRequest = async (orderId: string, approved: boolean) => {
+    // eslint-disable-next-line no-restricted-globals
     if(!confirm(approved ? '¿Aprobar anulación y devolver stock?' : '¿Rechazar solicitud y mantener venta?')) return;
     try {
-      const token = localStorage.getItem('erp_token');
+      const token = sessionStorage.getItem('erp_token');
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       await axios.post(`${API_URL}/api/orders/${orderId}/resolve-cancellation`, 
         { approved }, 
@@ -100,7 +101,7 @@ export default function SalesHistory() {
   const confirmDirectDelete = async () => {
     if (!orderToDelete) return;
     try {
-      const token = localStorage.getItem('erp_token');
+      const token = sessionStorage.getItem('erp_token');
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       await axios.delete(`${API_URL}/api/orders/${orderToDelete}`, {
         headers: { Authorization: `Bearer ${token}` }

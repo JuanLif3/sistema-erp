@@ -19,7 +19,7 @@ export default function PendingRequestsWidget() {
 
 const fetchRequests = async () => {
     try {
-      const token = localStorage.getItem('erp_token');
+      const token = sessionStorage.getItem('erp_token');
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
 
       const res = await axios.get(`${API_URL}/api/finances/summary`, {
@@ -32,7 +32,7 @@ const fetchRequests = async () => {
 const handleResolve = async (id: string, approved: boolean) => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('erp_token');
+      const token = sessionStorage.getItem('erp_token');
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
 
       await axios.post(`${API_URL}/api/orders/${id}/resolve-cancellation`, 

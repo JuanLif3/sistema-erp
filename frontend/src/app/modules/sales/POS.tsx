@@ -46,7 +46,7 @@ export default function POS() {
 
 const fetchProducts = async () => {
     try {
-      const token = localStorage.getItem('erp_token');
+      const token = sessionStorage.getItem('erp_token');
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
       const response = await axios.get(`${API_URL}/api/products?active=true`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -90,7 +90,7 @@ const fetchProducts = async () => {
     if (cart.length === 0) return;
     setLoading(true);
     try {
-      const token = localStorage.getItem('erp_token');
+      const token = sessionStorage.getItem('erp_token');
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
       await axios.post(`${API_URL}/api/orders`, {
         items: cart.map(item => ({ productId: item.id, quantity: item.quantity })),

@@ -14,7 +14,7 @@ export default function LowStockWidget({ onNavigate }: { onNavigate: () => void 
 useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const token = localStorage.getItem('erp_token');
+        const token = sessionStorage.getItem('erp_token');
         // 👇 AGREGAR ESTA LÍNEA
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
         

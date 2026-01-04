@@ -38,7 +38,7 @@ export default function ProductFormModal({ isOpen, onClose, onSuccess, productTo
   useEffect(() => {
     if (isOpen) {
       // Verificar rol Admin
-      const roles = JSON.parse(localStorage.getItem('erp_roles') || '[]');
+      const roles = JSON.parse(sessionStorage.getItem('erp_roles') || '[]');
       setIsAdmin(roles.includes('admin'));
 
       // Cargar categorías
@@ -62,8 +62,8 @@ export default function ProductFormModal({ isOpen, onClose, onSuccess, productTo
 
 const fetchCategories = async () => {
     try {
-      const token = localStorage.getItem('erp_token');
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+      const token = sessionStorage.getItem('erp_token');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const res = await axios.get(`${API_URL}/api/categories`, {
          headers: { Authorization: `Bearer ${token}` }
       });
@@ -82,8 +82,8 @@ const fetchCategories = async () => {
     const formDataUpload = new FormData();
     formDataUpload.append('file', file);
     try {
-      const token = localStorage.getItem('erp_token');
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+      const token = sessionStorage.getItem('erp_token');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const response = await axios.post(`${API_URL}/api/products/upload`, formDataUpload, {
         headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` }
       });
@@ -96,8 +96,8 @@ const fetchCategories = async () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const token = localStorage.getItem('erp_token');
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+      const token = sessionStorage.getItem('erp_token');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
       const payload = { ...formData, price: parseFloat(formData.price), stock: parseInt(formData.stock) };
       

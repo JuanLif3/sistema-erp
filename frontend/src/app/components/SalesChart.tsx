@@ -21,7 +21,7 @@ export default function SalesChart() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('erp_token');
+      const token = sessionStorage.getItem('erp_token');
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       
       // Calcular Fechas

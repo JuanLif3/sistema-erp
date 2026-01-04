@@ -21,7 +21,7 @@ export default function SuperAdminDashboard() {
 
   const fetchCompanies = async () => {
     try {
-      const token = localStorage.getItem('erp_token');
+      const token = sessionStorage.getItem('erp_token');
       const res = await axios.get(`${API_URL}/api/super-admin/companies`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -31,9 +31,10 @@ export default function SuperAdminDashboard() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    // eslint-disable-next-line no-restricted-globals
     if(!confirm('¿Crear esta empresa?')) return;
     try {
-      const token = localStorage.getItem('erp_token');
+      const token = sessionStorage.getItem('erp_token');
       await axios.post(`${API_URL}/api/super-admin/companies`, form, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -46,10 +47,11 @@ export default function SuperAdminDashboard() {
 
   const toggleStatus = async (id: string, currentStatus: boolean) => {
     const action = currentStatus ? 'DESACTIVAR' : 'ACTIVAR';
+    // eslint-disable-next-line no-restricted-globals
     if(!confirm(`¿Seguro que deseas ${action} el acceso a esta empresa?`)) return;
     
     try {
-      const token = localStorage.getItem('erp_token');
+      const token = sessionStorage.getItem('erp_token');
       await axios.patch(`${API_URL}/api/super-admin/companies/${id}/toggle`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });

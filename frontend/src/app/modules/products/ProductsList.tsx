@@ -35,7 +35,7 @@ export default function ProductsList() {
 
   useEffect(() => {
     // 1. Verificar Roles (Admin o Manager pueden editar)
-    const roles = JSON.parse(localStorage.getItem('erp_roles') || '[]');
+    const roles = JSON.parse(sessionStorage.getItem('erp_roles') || '[]');
     setCanEdit(roles.includes('admin') || roles.includes('manager'));
 
     // 2. Cargar productos
@@ -45,8 +45,8 @@ export default function ProductsList() {
 const fetchProducts = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('erp_token');
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; 
+      const token = sessionStorage.getItem('erp_token');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       
       // 👇 ESTA LÍNEA FALTABA: Recuperamos el ordenamiento del estado
       const [sortBy, order] = sortOption.split('-');
@@ -71,7 +71,7 @@ const fetchProducts = async () => {
   const toggleStatus = async (product: Product) => {
     if (!canEdit) return; // Protección de permisos
     try {
-      const token = localStorage.getItem('erp_token');
+      const token = sessionStorage.getItem('erp_token');
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       
       await axios.patch(`${API_URL}/api/products/${product.id}`, {
@@ -100,8 +100,8 @@ const fetchProducts = async () => {
   const confirmDelete = async () => {
     if (!productToDelete) return;
     try {
-      const token = localStorage.getItem('erp_token');
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+      const token = sessionStorage.getItem('erp_token');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       await axios.delete(`${API_URL}/api/products/${productToDelete}`, {
         headers: { Authorization: `Bearer ${token}` }
       });

@@ -25,8 +25,8 @@ export default function UsersList() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('erp_token');
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+      const token = sessionStorage.getItem('erp_token');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const res = await axios.get(`${API_URL}/api/users`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -39,8 +39,8 @@ export default function UsersList() {
     // eslint-disable-next-line no-restricted-globals
     if (!confirm('¿Eliminar usuario permanentemente?')) return;
     try {
-      const token = localStorage.getItem('erp_token');
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+      const token = sessionStorage.getItem('erp_token');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       await axios.delete(`${API_URL}/api/users/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -50,8 +50,8 @@ export default function UsersList() {
 
   const toggleStatus = async (user: User) => {
     try {
-      const token = localStorage.getItem('erp_token');
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // 👈
+      const token = sessionStorage.getItem('erp_token');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       await axios.patch(`${API_URL}/api/users/${user.id}`, 
         { isActive: !user.isActive }, 
         { headers: { Authorization: `Bearer ${token}` } }
