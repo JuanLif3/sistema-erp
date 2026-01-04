@@ -102,15 +102,21 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-2">
           
           {/* 👇 4. CÓDIGO NUEVO: BOTÓN SUPER ADMIN DENTRO DEL MENÚ */}
-          {isSuperAdmin && (
-            <Link 
-              to="/super-admin" 
-              className="flex items-center gap-4 px-4 py-3 text-indigo-200 hover:bg-slate-800 hover:text-white transition-all rounded-xl mb-4 border border-dashed border-slate-700 bg-slate-800/50"
-            >
-              <ShieldCheck size={22} className="text-indigo-400" />
-              <span className="font-bold">Super Admin</span>
-            </Link>
-          )}
+          {/* BOTÓN SUPER ADMIN (Solo visible para ti) */}
+        {isSuperAdmin && (
+          <Link 
+            to="/super-admin" 
+            className="flex items-center gap-4 px-4 py-3 text-indigo-200 hover:bg-slate-800 hover:text-white transition-all rounded-xl mb-4 border border-dashed border-slate-700 bg-slate-800/50"
+          >
+            <ShieldCheck size={22} className="text-indigo-400" />
+            <span className="font-bold">Super Admin</span>
+          </Link>
+        )}
+
+        {/* MENÚ NORMAL (El resto de tus botones) */}
+        {menuItems.filter(item => hasRole(item.allowedRoles)).map((item) => {
+           // ... (tu código existente de los botones)
+        })}
           {/* 👆 FIN CÓDIGO NUEVO */}
 
           {menuItems.filter(item => hasRole(item.allowedRoles)).map((item) => {

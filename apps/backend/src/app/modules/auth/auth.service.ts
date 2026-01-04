@@ -17,27 +17,30 @@ export class AuthService {
     private readonly mailerService: MailerService
   ) {}
 
-  // 1. Validar usuario y contraseña
-  async validateUser(loginDto: LoginDto): Promise<any> {
-    const { email, password } = loginDto;
+  async validateUser(email: string, pass: string): Promise<any> {
+    const user = await this.usersService.findByEmail(email); // Esto ahora trae la company gracias al paso 1
 
-    // Buscamos al usuario por email
-    const user = await this.usersService.findOneByEmail(email);
+    // 1. Validar que el usuario exista
+    if (!user) return null;
 
-    // Si el usuario existe y la contraseña coincide...
-    if (user && bcrypt.compareSync(password, user.password)) {
-      
-      // 👇 BLOQUE DE SEGURIDAD NUEVO
-      if (!user.isActive) {
-        // Si está inactivo, le prohibimos la entrada aunque la contraseña esté bien
-        throw new UnauthorizedException('Tu cuenta ha sido desactivada. Contacte al administrador.');
-      }
+    // 2. Validar contraseña
+    const isMatch = await bcrypt.compare(pass, user.password);
+    if (!isMatch) return null;
 
-      const { password, ...result } = user; // Quitamos el password
-      return result; // Retornamos usuario limpio
+    // 3. Validar si el usuario mismo está activo (despido individual)
+    if (!user.isActive) {
+      throw new UnauthorizedException('Tu usuario ha sido desactivado.');
     }
-    
-    return null; // Credenciales incorrectas
+
+    // 👇 4. VALIDACIÓN DE EMPRESA SUSPENDIDA (EL FIX)
+    // Si tiene empresa Y la empresa NO está activa -> Bloqueo total
+    if (user.company && !user.company.isActive) {
+       throw new UnauthorizedException('El servicio de su empresa está suspendido. Contacte a soporte.');
+    }
+
+    // ... quitar password y retornar
+    const { password, ...result } = user;
+    return result;
   }
 
   // 2. Generar el token (login)

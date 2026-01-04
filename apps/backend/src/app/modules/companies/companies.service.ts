@@ -2,18 +2,32 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Company } from './entities/company.entity';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcrypt'; // Usamos el import correcto
 import { User } from '../users/entities/user.entity';
 
 @Injectable()
 export class CompaniesService {
-  companyRepo: any;
+  // Eliminamos la variable 'companyRepo' que causaba el error
+  
   constructor(
     @InjectRepository(Company)
-    private readonly companyRepository: Repository<Company>,
+    private readonly companyRepository: Repository<Company>, // Este es el repositorio real
     private dataSource: DataSource,
   ) {}
 
+  // 1. LISTAR PARA SUPER ADMIN
+  async findAllForSuperAdmin() {
+    // ⚠️ CORRECCIÓN: Usamos this.companyRepository (no companyRepo)
+    return this.companyRepository.query(`
+      SELECT c.id, c.name, c.rut, c."isActive", c."createdAt", COUNT(u.id) as "usersCount"
+      FROM companies c
+      LEFT JOIN users u ON u."companyId" = c.id
+      GROUP BY c.id, c.name, c.rut, c."isActive", c."createdAt"
+      ORDER BY c."createdAt" DESC
+    `);
+  }
+
+  // 2. CREAR EMPRESA + ADMIN
   async createCompanyWithAdmin(data: any) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -21,20 +35,19 @@ export class CompaniesService {
 
     try {
       // A. Crear Empresa
-      const company = this.companyRepo.create({
+      const company = this.companyRepository.create({
         name: data.companyName,
         rut: data.companyRut,
         isActive: true
       });
+      // Guardamos usando el queryRunner para que sea parte de la transacción
       const savedCompany = await queryRunner.manager.save(company);
 
-      // B. Crear Usuario Admin para esa empresa
-      // Importante: Hashear password aquí o en el entity listener
-      // Asumiremos que usas bcrypt aquí para asegurar
-      const bcrypt = require('bcrypt'); 
+      // B. Crear Usuario Admin
       const hashedPassword = await bcrypt.hash(data.adminPassword, 10);
 
-      const user = queryRunner.manager.create('User', { // Usamos string 'User' o importa la entidad User
+      // Usamos la Entidad User importada, no un string
+      const user = queryRunner.manager.create(User, {
         fullName: data.adminName,
         email: data.adminEmail,
         password: hashedPassword,
@@ -61,23 +74,13 @@ export class CompaniesService {
     return this.companyRepository.find({ order: { createdAt: 'DESC' } });
   }
 
-  async findAllForSuperAdmin() {
-    return this.companyRepo.query(`
-      SELECT c.id, c.name, c.rut, c."isActive", c."createdAt", COUNT(u.id) as "usersCount"
-      FROM companies c
-      LEFT JOIN users u ON u."companyId" = c.id
-      GROUP BY c.id
-      ORDER BY c."createdAt" DESC
-    `);
-  }
-
-  // 3. Bloquear / Desbloquear Empresa
+  // 3. BLOQUEAR / DESBLOQUEAR
   async toggleStatus(id: string) {
-    const company = await this.companyRepo.findOneBy({ id });
+    // ⚠️ CORRECCIÓN: Usamos this.companyRepository
+    const company = await this.companyRepository.findOneBy({ id });
     if (!company) throw new Error('Empresa no encontrada');
     
-    company.isActive = !company.isActive; // Invertir estado
-    return this.companyRepo.save(company);
+    company.isActive = !company.isActive;
+    return this.companyRepository.save(company);
   }
-  
 }

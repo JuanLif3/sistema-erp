@@ -8,6 +8,7 @@ import Dashboard from './dashboard';
 import SaaSManager from './modules/admin/SaaSManager';
 import ForgotPassword from './modules/auth/ForgotPassword';
 import ResetPassword from './modules/auth/ResetPassword';
+import SuperAdminDashboard from './modules/admin/SuperAdminDashboard';
 
 
 // Componente Interno: LOGIN
@@ -125,6 +126,13 @@ export function App() {
         </ProtectedRoute>
       } />
 
+      
+
+<Route path="/super-admin" element={
+   <ProtectedRoute allowedRoles={['super-admin']}>
+      <SaaSManager />
+   </ProtectedRoute>
+} />
       {/* 3. Ruta Privada: Admin SaaS (Creación de Pymes) */}
       <Route path="/saas-admin" element={
         <ProtectedRoute>

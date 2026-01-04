@@ -91,4 +91,12 @@ async create(createUserDto: any, adminUser: any) {
         return await this.userRepository.save(userToDelete);
     }
   }
+
+  async findByEmail(email: string) {
+    return this.userRepository.createQueryBuilder('user')
+      .leftJoinAndSelect('user.company', 'company') // 1. Traer datos de empresa (para ver si está activa)
+      .addSelect('user.password')                   // 2. Traer password (aunque tenga select: false)
+      .where('user.email = :email', { email })
+      .getOne();
+  }
 }
