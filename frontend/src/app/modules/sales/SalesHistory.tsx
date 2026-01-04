@@ -24,7 +24,7 @@ interface Order {
   user?: { fullName: string; email: string };
 }
 
-export default function SalesHistory() {
+export default function SalesHistory({ userRole }: { userRole: string }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -43,11 +43,16 @@ export default function SalesHistory() {
 
   useEffect(() => {
     const token = sessionStorage.getItem('erp_token');
+    const rolesStr = sessionStorage.getItem('erp_roles');
     if (rolesStr) {
       try {
         const roles = JSON.parse(rolesStr);
-        setIsAdmin(roles.includes('admin') || roles.includes('super-admin'));
-      } catch (e) { setIsAdmin(false); }
+        setIsAdmin(Array.isArray(roles) && (roles.includes('admin') || roles.includes('super-admin')));
+      } catch (e) { 
+        setIsAdmin(false); 
+      }
+    } else {
+      setIsAdmin(false);
     }
     fetchOrders();
   }, [activeTab, page]);
