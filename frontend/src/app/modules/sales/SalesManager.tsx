@@ -1,42 +1,67 @@
-import { useState } from 'react';
-import { ShoppingCart, History } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import POS from './POS';
 import SalesHistory from './SalesHistory';
+import { ShoppingCart, History, TrendingUp } from 'lucide-react';
 
 export default function SalesManager() {
-  const [activeTab, setActiveTab] = useState<'pos' | 'history'>('pos');
+  const [activeTab, setActiveTab] = useState('pos');
+  const [userRole, setUserRole] = useState('');
+
+  useEffect(() => {
+    // 👇 CORRECCIÓN: Leer de sessionStorage
+    const roles = JSON.parse(sessionStorage.getItem('erp_roles') || '[]');
+    
+    if (roles.includes('admin')) setUserRole('admin');
+    else if (roles.includes('manager')) setUserRole('manager');
+    else setUserRole('employee');
+  }, []);
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Barra de Pestañas Superior */}
-      <div className="flex space-x-1 bg-white p-1 rounded-xl shadow-sm border border-slate-200 mb-6 w-fit mx-auto sm:mx-0">
-        <button
-          onClick={() => setActiveTab('pos')}
-          className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'pos'
-              ? 'bg-slate-900 text-white shadow-md'
-              : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-          }`}
-        >
-          <ShoppingCart size={18} />
-          Terminal POS
-        </button>
-        <button
-          onClick={() => setActiveTab('history')}
-          className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'history'
-              ? 'bg-slate-900 text-white shadow-md'
-              : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-          }`}
-        >
-          <History size={18} />
-          Historial de Ventas
-        </button>
+    <div className="space-y-6 animate-fade-in">
+      {/* Header Simplificado */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800">Ventas y Pedidos</h2>
+          <p className="text-slate-500 text-sm">Gestiona transacciones y revisa el historial</p>
+        </div>
+        
+        {/* Navegación de Pestañas */}
+        <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
+          <button
+            onClick={() => setActiveTab('pos')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === 'pos' 
+                ? 'bg-brand-600 text-white shadow-md' 
+                : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <ShoppingCart size={18} />
+            Nueva Venta (POS)
+          </button>
+          
+          <div className="w-px bg-slate-200 my-2 mx-1"></div>
+
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === 'history' 
+                ? 'bg-brand-600 text-white shadow-md' 
+                : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <History size={18} />
+            Historial de Ventas
+          </button>
+        </div>
       </div>
 
-      {/* Contenido de la Pestaña */}
-      <div className="flex-1">
-        {activeTab === 'pos' ? <POS /> : <SalesHistory />}
+      {/* Contenido */}
+      <div className="min-h-[500px]">
+        {activeTab === 'pos' ? (
+          <POS />
+        ) : (
+          <SalesHistory userRole={userRole} />
+        )}
       </div>
     </div>
   );
