@@ -14,9 +14,11 @@ export class FinancesService {
     private dataSource: DataSource
   ) {}
 
-  // 1. RESUMEN
+  // 1. RESUMEN (DASHBOARD) - CORREGIDO
   async getSummary(user: any, startDate?: Date, endDate?: Date) {
     const companyId = user.companyId;
+    
+    // A. Ingresos Totales (Filtros Globales)
     const query = this.orderRepository.createQueryBuilder('order')
       .where('order.status = :status', { status: 'completed' })
       .andWhere('order.companyId = :companyId', { companyId });
@@ -30,14 +32,15 @@ export class FinancesService {
     const revenue = Number(totalRevenueQuery?.sum || 0);
     const avgTicket = totalOrders > 0 ? revenue / totalOrders : 0;
 
-    // Ventas HOY
+    // B. Ventas HOY (Corregido con Zona Horaria Chile)
     const todayOrders = await this.orderRepository.createQueryBuilder('order')
       .where("order.status = 'completed'")
       .andWhere("order.companyId = :companyId", { companyId })
-      .andWhere("DATE(order.createdAt) = CURRENT_DATE")
+      // 👇 MAGIA AQUÍ: Convertimos la fecha de creación a Chile y la comparamos con 'HOY' en Chile
+      .andWhere("DATE(order.createdAt AT TIME ZONE 'America/Santiago') = DATE(NOW() AT TIME ZONE 'America/Santiago')")
       .getCount();
 
-    // Gastos
+    // C. Gastos
     const expenseQuery = this.expenseRepository.createQueryBuilder('expense')
       .where('expense.companyId = :companyId', { companyId });
 
@@ -89,26 +92,25 @@ export class FinancesService {
     return this.expenseRepository.delete({ id, companyId: user.companyId });
   }
 
-  // 3. GRÁFICOS
+  // 3. GRÁFICOS - CORREGIDO
   async getSalesHistory(user: any, startDate: Date, endDate: Date) {
-    // Convertimos fechas a string simple YYYY-MM-DD para evitar problemas de horas
     const startStr = startDate.toISOString().split('T')[0];
     const endStr = endDate.toISOString().split('T')[0];
 
+    // 👇 Usamos TO_CHAR con la zona horaria correcta para agrupar por día
     const sales = await this.orderRepository.query(`
       SELECT 
-        TO_CHAR("createdAt", 'YYYY-MM-DD') as date, 
+        TO_CHAR("createdAt" AT TIME ZONE 'America/Santiago', 'YYYY-MM-DD') as date, 
         SUM(total) as total
       FROM orders
       WHERE "companyId" = $1 
       AND status = 'completed'
       AND "createdAt" >= $2::date 
-      AND "createdAt" <= $3::date + interval '1 day' -- 👈 Truco para incluir el día final completo
-      GROUP BY TO_CHAR("createdAt", 'YYYY-MM-DD')
+      AND "createdAt" <= $3::date + interval '1 day'
+      GROUP BY TO_CHAR("createdAt" AT TIME ZONE 'America/Santiago', 'YYYY-MM-DD')
       ORDER BY date ASC
     `, [user.companyId, startStr, endStr]);
 
-    // Convertimos el total a número (Postgres lo devuelve como string)
     return sales.map(item => ({ 
       date: item.date, 
       total: Number(item.total) 
@@ -141,20 +143,28 @@ export class FinancesService {
       .getRawMany();
   }
 
-  // 4. SIMULADOR (Corregido para SaaS)
+  // 4. SIMULADOR - CORREGIDO
   async simulateSales(user: any) {
     const orders = [];
-    const today = new Date();
-    for (let i = 0; i < 15; i++) { // Solo 15 días para no saturar
+    const today = new Date(); // Esto tomará la hora del servidor (UTC)
+    
+    // No necesitamos corregir mucho aquí porque al guardar 'new Date()', 
+    // Postgres guarda en UTC. Lo importante es cómo LEEMOS esos datos (con AT TIME ZONE).
+    
+    for (let i = 0; i < 15; i++) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
+      
+      // Aleatoriedad para que no sea siempre igual
+      date.setHours(Math.floor(Math.random() * 12) + 10); // Entre las 10 AM y 10 PM
+
       const dailyCount = Math.floor(Math.random() * 5) + 1;
       for (let j = 0; j < dailyCount; j++) {
         orders.push(this.orderRepository.create({
           total: Math.floor(Math.random() * 50000) + 5000,
           status: 'completed',
           createdAt: date,
-          companyId: user.companyId, // 👈 Importante: Simular para MI empresa
+          companyId: user.companyId,
           user: { id: user.userId }
         }));
       }
@@ -163,23 +173,14 @@ export class FinancesService {
     return { message: 'Datos simulados exitosamente.' };
   }
 
-  // ===========================================================================
-  // 4. GENERADOR DE PDF MAESTRO (CORREGIDO HORA 00:00 a 23:59)
-  // ===========================================================================
+  // 5. REPORTE PDF (Mantenemos tu corrección del reporte)
   async generateReport(user: any, start?: Date, end?: Date): Promise<Buffer> {
-    
-    // 1. CORRECCIÓN DE FECHAS (Timezone Fix)
-    // Convertimos la entrada a un objeto Date fresco
     const rawStart = start ? new Date(start) : new Date(new Date().setDate(new Date().getDate() - 30));
     const rawEnd = end ? new Date(end) : new Date();
 
-    // Extraemos solo la parte YYYY-MM-DD para evitar el desfase de zona horaria
-    // Usamos split('T') si viene en formato ISO, o construimos manual si es necesario
     const startString = rawStart.toISOString().split('T')[0];
     const endString = rawEnd.toISOString().split('T')[0];
 
-    // 2. CREAMOS LOS OBJETOS FECHA ABSOLUTOS (String + Hora Fija)
-    // Esto fuerza a la BD a buscar desde el segundo 0 del día 1 hasta el último milisegundo del día 2
     const startDate = new Date(`${startString}T00:00:00.000`);
     const endDate = new Date(`${endString}T23:59:59.999`);
 
@@ -189,11 +190,11 @@ export class FinancesService {
     doc.on('data', buffers.push.bind(buffers));
     doc.on('end', () => { /* empty */ });
 
-    // --- CARGAR DATOS (Usando las nuevas fechas corregidas) ---
+    // CARGAR DATOS
     const summary = await this.getSummary(user, startDate, endDate);
     const topProducts = await this.getTopProducts(user, startDate, endDate);
     
-    // Categorías
+    // Categorías (con fechas corregidas)
     const categoriesData = await this.dataSource.getRepository(OrderItem)
       .createQueryBuilder('item')
       .leftJoin('item.product', 'product')
@@ -201,7 +202,7 @@ export class FinancesService {
       .select(['product.category as name', 'SUM(item.quantity * item.priceAtPurchase) as value', 'COUNT(product.id) as count'])
       .where("order.status = 'completed'")
       .andWhere("order.companyId = :cid", { cid: user.companyId })
-      .andWhere("order.createdAt >= :start", { start: startDate }) // 👈 Usamos >= y <= para precisión
+      .andWhere("order.createdAt >= :start", { start: startDate }) 
       .andWhere("order.createdAt <= :end", { end: endDate })
       .groupBy('product.category')
       .orderBy('value', 'DESC')
@@ -227,11 +228,9 @@ export class FinancesService {
     // 1. ENCABEZADO
     doc.rect(0, 0, 600, 100).fill(primaryColor);
     doc.fillColor('#fff').fontSize(24).font('Helvetica-Bold').text('REPORTE DE VENTAS', 40, 35);
-    doc.fontSize(10).font('Helvetica').text(`Generado el: ${new Date().toLocaleString('es-CL')}`, 40, 65);
+    // 👇 Corrección aquí para hora reporte en el PDF
+    doc.fontSize(10).font('Helvetica').text(`Generado el: ${new Date().toLocaleString('es-CL', { timeZone: 'America/Santiago' })}`, 40, 65);
     
-    // 👇 AQUI CORREGIMOS EL TEXTO DEL PDF
-    // Usamos 'startString' (YYYY-MM-DD) directo para que muestre exactamente lo que seleccionaste
-    // y aplicamos split('-').reverse().join('/') para que se vea DD/MM/YYYY
     const displayStart = startString.split('-').reverse().join('/');
     const displayEnd = endString.split('-').reverse().join('/');
 
@@ -258,10 +257,10 @@ export class FinancesService {
 
     y += 80;
 
-    // 3. TOP PRODUCTOS & CATEGORÍAS
+    // 3. SECCIÓN GRÁFICA
     const startYSection3 = y;
     
-    // Columna Izquierda: Top Productos
+    // Top Productos
     doc.fillColor(primaryColor).fontSize(12).font('Helvetica-Bold').text('Top 5 Productos', 40, y);
     y += 20;
     doc.rect(40, y, 250, 20).fill('#e2e8f0');
@@ -275,7 +274,7 @@ export class FinancesService {
       y += 20;
     });
 
-    // Columna Derecha: Categorías
+    // Categorías
     let yRight = startYSection3;
     doc.fillColor(primaryColor).fontSize(12).font('Helvetica-Bold').text('Ventas por Categoría', 310, yRight);
     yRight += 20;
@@ -324,7 +323,10 @@ export class FinancesService {
       doc.fillColor('#334155');
 
       // Formato fecha local en la tabla
-      const dateStr = new Date(order.createdAt).toLocaleDateString('es-CL') + ' ' + new Date(order.createdAt).toLocaleTimeString('es-CL', {hour: '2-digit', minute:'2-digit'});
+      // 👇 Corrección aquí para hora en la tabla del PDF
+      const dateStr = new Date(order.createdAt).toLocaleDateString('es-CL', { timeZone: 'America/Santiago' }) + ' ' + 
+                      new Date(order.createdAt).toLocaleTimeString('es-CL', { timeZone: 'America/Santiago', hour: '2-digit', minute:'2-digit'});
+      
       const clientName = order.user ? order.user.fullName : 'Sistema';
       const itemCount = order.items ? order.items.length : 0;
 

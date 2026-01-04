@@ -1,5 +1,5 @@
-import { useState, useEffect, JSX } from 'react';
-import { Routes, Route, Navigate, useNavigate, Link } from 'react-router-dom'; // 👈 Importamos Router
+import { useState, JSX } from 'react';
+import { Routes, Route, Navigate, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { Loader2, Lock, Mail } from 'lucide-react';
 
@@ -8,8 +8,6 @@ import Dashboard from './dashboard';
 import SaaSManager from './modules/admin/SaaSManager';
 import ForgotPassword from './modules/auth/ForgotPassword';
 import ResetPassword from './modules/auth/ResetPassword';
-import SuperAdminDashboard from './modules/admin/SuperAdminDashboard';
-
 
 // Componente Interno: LOGIN
 function Login() {
@@ -28,21 +26,22 @@ function Login() {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const response = await axios.post(`${API_URL}/api/auth/login`, { email, password });
       
-      // Guardar Credenciales
-      localStorage.setItem('erp_token', response.data.access_token);
+      // 👇 CORRECCIÓN 1: Todo a sessionStorage
+      sessionStorage.setItem('erp_token', response.data.access_token);
+      
       const roles = response.data.user.roles;
-      localStorage.setItem('erp_roles', JSON.stringify(Array.isArray(roles) ? roles : [roles]));
+      sessionStorage.setItem('erp_roles', JSON.stringify(Array.isArray(roles) ? roles : [roles]));
 
-      // Redirección inteligente según rol
+      // Redirección inteligente
       if (roles.includes('super-admin')) {
-        navigate('/saas-admin'); // El Super Admin va directo a gestionar Pymes
+        navigate('/super-admin'); 
       } else {
-        navigate('/'); // Los usuarios normales van al Dashboard
+        navigate('/'); 
       }
       
     } catch (err) {
       console.error(err);
-      setError('Credenciales incorrectas o usuario inactivo');
+      setError('Credenciales incorrectas o cuenta suspendida');
     } finally {
       setLoading(false);
     }
@@ -80,12 +79,11 @@ function Login() {
                 className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                 placeholder="••••••" />
             </div>
-
             <div className="flex justify-end">
-            <Link to="/forgot-password" className="text-sm text-indigo-600 hover:text-indigo-800 font-medium hover:underline">
-              ¿Olvidaste tu contraseña?
-            </Link>
-          </div>
+               <Link to="/forgot-password" className="text-sm text-indigo-600 hover:text-indigo-800 font-medium hover:underline">
+                 ¿Olvidaste tu contraseña?
+               </Link>
+            </div>
           </div>
           <button type="submit" disabled={loading}
             className="w-full bg-slate-900 hover:bg-black text-white py-2.5 rounded-lg font-medium shadow-lg flex justify-center items-center gap-2 disabled:opacity-70">
@@ -98,9 +96,18 @@ function Login() {
 }
 
 // Componente Interno: PROTECTOR DE RUTAS
-function ProtectedRoute({ children }: { children: JSX.Element }) {
-  const token = localStorage.getItem('erp_token');
+// 👇 CORRECCIÓN 2: Agregamos `allowedRoles` a la definición para que funcione el filtro
+function ProtectedRoute({ children, allowedRoles }: { children: JSX.Element, allowedRoles?: string[] }) {
+  const token = sessionStorage.getItem('erp_token');
+  
   if (!token) return <Navigate to="/login" replace />;
+
+  if (allowedRoles) {
+    const userRoles = JSON.parse(sessionStorage.getItem('erp_roles') || '[]');
+    const hasRole = allowedRoles.some(role => userRoles.includes(role));
+    if (!hasRole) return <Navigate to="/" replace />;
+  }
+
   return children;
 }
 
@@ -109,46 +116,37 @@ export function App() {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    localStorage.removeItem('erp_token');
-    localStorage.removeItem('erp_roles');
+    // 👇 CORRECCIÓN 3: Limpiamos sessionStorage (no local)
+    sessionStorage.removeItem('erp_token');
+    sessionStorage.removeItem('erp_roles');
     navigate('/login');
   };
 
   return (
     <Routes>
-      {/* 1. Ruta Pública: Login */}
       <Route path="/login" element={<Login />} />
 
-      {/* 2. Ruta Privada: Dashboard (ERP Normal) */}
       <Route path="/" element={
         <ProtectedRoute>
           <Dashboard onLogout={handleLogout} />
         </ProtectedRoute>
       } />
 
-      
-
-<Route path="/super-admin" element={
-   <ProtectedRoute allowedRoles={['super-admin']}>
-      <SaaSManager />
-   </ProtectedRoute>
-} />
-      {/* 3. Ruta Privada: Admin SaaS (Creación de Pymes) */}
-      <Route path="/saas-admin" element={
-        <ProtectedRoute>
-           {/* Botón flotante para volver al Dashboard normal si quieres */}
-           <div className="min-h-screen bg-slate-50 relative">
-              <button onClick={handleLogout} className="absolute top-4 right-4 text-red-500 font-bold text-sm">Cerrar Sesión</button>
-              <SaaSManager />
-           </div>
-        </ProtectedRoute>
+      {/* Ruta unificada para Super Admin */}
+      <Route path="/super-admin" element={
+         <ProtectedRoute allowedRoles={['super-admin']}>
+            <div className="relative min-h-screen bg-slate-50">
+               <button onClick={handleLogout} className="absolute top-4 right-6 text-red-500 font-bold text-sm z-50 hover:underline">
+                 Cerrar Sesión
+               </button>
+               <SaaSManager />
+            </div>
+         </ProtectedRoute>
       } />
       
-      {/* Default: Redirigir a login */}
       <Route path="*" element={<Navigate to="/login" />} />
-
       <Route path="/forgot-password" element={<ForgotPassword />} />
-<Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
     </Routes>
   );
 }

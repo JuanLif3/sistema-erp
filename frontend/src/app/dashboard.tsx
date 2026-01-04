@@ -57,7 +57,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
   const handleDownloadReport = async () => {
     try {
-      const token = localStorage.getItem('erp_token');
+      const token = sessionStorage.getItem('erp_token');
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const response = await axios.get(`${API_URL}/api/finances/report?startDate=${dateRange.start}&endDate=${dateRange.end}`, {
         headers: { Authorization: `Bearer ${token}` },

@@ -20,7 +20,7 @@ export default function SaaSManager() {
   // 1. OBTENER EMPRESAS (Usando el endpoint seguro de SuperAdmin)
   const fetchCompanies = async () => {
     try {
-      const token = localStorage.getItem('erp_token');
+      const token = sessionStorage.getItem('erp_token');
       // Usamos el endpoint correcto del SuperAdminController
       const res = await axios.get(`${API_URL}/api/super-admin/companies`, { 
         headers: { Authorization: `Bearer ${token}` }
@@ -40,7 +40,7 @@ export default function SaaSManager() {
     if(!confirm('¿Confirmas la creación de este nuevo cliente?')) return;
 
     try {
-      const token = localStorage.getItem('erp_token');
+      const token = sessionStorage.getItem('erp_token');
       
       // Mapeamos los datos del formulario a lo que espera el Backend
       const payload = {
@@ -70,7 +70,7 @@ export default function SaaSManager() {
     if(!confirm(`¿Estás seguro que deseas ${action} el acceso a esta empresa?`)) return;
     
     try {
-      const token = localStorage.getItem('erp_token');
+      const token = sessionStorage.getItem('erp_token');
       await axios.patch(`${API_URL}/api/super-admin/companies/${id}/toggle`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
