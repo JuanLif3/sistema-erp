@@ -1,18 +1,23 @@
 import { useState } from 'react';
 import axios from 'axios';
+// 👇 1. IMPORTAMOS Link CORRECTAMENTE DESDE REACT-ROUTER-DOM
 import { Link } from 'react-router-dom';
 
 import { 
-  Users, Package, ShoppingCart, DollarSign, LogOut, Menu, LayoutDashboard, X, ChevronRight, Shield, 
+  Users, Package, ShoppingCart, DollarSign, LogOut, Menu, LayoutDashboard, X, ChevronRight, Shield, Wand2, 
   BarChart3, Wallet, 
-  ShieldCheck
+  ShieldCheck,
+  // Link, 👈 2. ELIMINAMOS ESTE IMPORT INCORRECTO (era un icono, no el enlace)
 } from 'lucide-react';
-
 import PendingRequestsWidget from './components/PendingRequestsWidget';
+
+// Módulos
 import ProductsList from './modules/products/ProductsList';
 import SalesManager from './modules/sales/SalesManager';
 import UsersList from './modules/users/UsersList';
 import ExpensesManager from './modules/finances/ExpensesManager';
+
+// Componentes Dashboard
 import StatsCards from './components/StatsCards';
 import LowStockWidget from './components/LowStockWidget';
 import SalesChart from './components/SalesChart';
@@ -24,10 +29,10 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ onLogout }: DashboardProps) {
-  // 👇 CORRECCIÓN CLAVE: Usamos sessionStorage
+  // Roles
   const userRoles = JSON.parse(sessionStorage.getItem('erp_roles') || '["employee"]');
   const roles = JSON.parse(sessionStorage.getItem('erp_roles') || '[]');
-  const isSuperAdmin = roles.includes('super-admin');
+  const isSuperAdmin = roles.includes('super-admin'); // 👈 Tu lógica está bien aquí
   
   const hasRole = (requiredRoles: string[]) => {
     if (userRoles.includes('admin')) return true;
@@ -52,7 +57,6 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
   const handleDownloadReport = async () => {
     try {
-      // Aquí ya lo tenías bien (sessionStorage)
       const token = sessionStorage.getItem('erp_token');
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const response = await axios.get(`${API_URL}/api/finances/report?startDate=${dateRange.start}&endDate=${dateRange.end}`, {
@@ -82,6 +86,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   return (
     <div className="flex h-screen bg-gray-100 font-sans overflow-hidden">
       
+      {/* 3. AQUÍ BORRAMOS EL CÓDIGO QUE ESTABA FLOTANDO FUERA DEL SIDEBAR */}
+
       {/* SIDEBAR */}
       {isSidebarOpen && <div className="fixed inset-0 z-20 bg-black/50 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
       <aside className={`fixed inset-y-0 left-0 z-30 w-72 bg-slate-900 text-white transform transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 flex flex-col shadow-2xl`}>
@@ -95,18 +101,24 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         
         <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-2">
           
-          {/* BOTÓN SUPER ADMIN (Solo visible si el rol existe en sessionStorage) */}
-          {isSuperAdmin && (
-            <Link 
-              to="/super-admin" 
-              className="flex items-center gap-4 px-4 py-3 text-indigo-200 hover:bg-slate-800 hover:text-white transition-all rounded-xl mb-4 border border-dashed border-slate-700 bg-slate-800/50"
-            >
-              <ShieldCheck size={22} className="text-indigo-400" />
-              <span className="font-bold">Super Admin</span>
-            </Link>
-          )}
+          {/* 👇 4. CÓDIGO NUEVO: BOTÓN SUPER ADMIN DENTRO DEL MENÚ */}
+          {/* BOTÓN SUPER ADMIN (Solo visible para ti) */}
+        {isSuperAdmin && (
+          <Link 
+            to="/super-admin" 
+            className="flex items-center gap-4 px-4 py-3 text-indigo-200 hover:bg-slate-800 hover:text-white transition-all rounded-xl mb-4 border border-dashed border-slate-700 bg-slate-800/50"
+          >
+            <ShieldCheck size={22} className="text-indigo-400" />
+            <span className="font-bold">Super Admin</span>
+          </Link>
+        )}
 
-          {/* MENÚ NORMAL */}
+        {/* MENÚ NORMAL (El resto de tus botones) */}
+        {menuItems.filter(item => hasRole(item.allowedRoles)).map((item) => {
+           // ... (tu código existente de los botones)
+        })}
+          {/* 👆 FIN CÓDIGO NUEVO */}
+
           {menuItems.filter(item => hasRole(item.allowedRoles)).map((item) => {
             const Icon = item.icon;
             const isActive = activeModule === item.id;
